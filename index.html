@@ -1,0 +1,1826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+    <meta name="mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+    <meta name="theme-color" content="#020a12"/>
+    <title>OptiCost – Lens Raw Material Cost Estimator</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet"/>
+    <style>
+        :root{
+          --bg:#060e18;--topbar:#020a12;--surface:#0c1d30;--footer-bg:#010709;
+          --surf2:#091624;--inp:#040f1c;--inp-brd:#1a8ad4;--accent:#22d3ee;
+          --accent2:#c084fc;--green:#4ade80;--amber:#fbbf24;--red:#f87171;
+          --text:#e8f4ff;--muted:#7db0cc;--border:#0e2e4e;--tag-txt:#060e18;
+          --footer-txt:#3e7498;--lens-fill1:rgba(6,34,90,0.65);--lens-fill2:rgba(14,60,140,0.48);
+          --radius:10px;--status-bar:32px;--nav-bar:48px;
+        }
+        [data-theme="light"]{
+          --bg:#f4f7fb;--topbar:#ffffff;--surface:#ffffff;--footer-bg:#e2e8f0;
+          --surf2:#eaf0f7;--inp:#f8fafc;--inp-brd:#3b82f6;--accent:#1d4ed8;
+          --accent2:#7c3aed;--green:#16a34a;--amber:#b45309;--red:#dc2626;
+          --text:#0f172a;--muted:#475569;--border:#cbd5e1;--tag-txt:#ffffff;
+          --footer-txt:#334155;--lens-fill1:rgba(30,80,180,0.55);--lens-fill2:rgba(60,130,220,0.38);
+        }
+        [data-theme="white"]{
+          --bg:#ffffff;--topbar:#ffffff;--surface:#f8f8f8;--footer-bg:#ececec;
+          --surf2:#f0f0f0;--inp:#ffffff;--inp-brd:#888;--accent:#222222;
+          --accent2:#555555;--green:#166534;--amber:#92400e;--red:#b91c1c;
+          --text:#111111;--muted:#555555;--border:#dddddd;--tag-txt:#ffffff;
+          --footer-txt:#444444;--lens-fill1:rgba(0,0,0,0.12);--lens-fill2:rgba(0,0,0,0.06);
+        }
+        [data-theme="warm"]{
+          --bg:#1a1208;--topbar:#120d04;--surface:#231808;--footer-bg:#0d0904;
+          --surf2:#1c1306;--inp:#120d04;--inp-brd:#c47c20;--accent:#f59e0b;
+          --accent2:#f87171;--green:#4ade80;--amber:#fbbf24;--red:#f87171;
+          --text:#fef3c7;--muted:#b08040;--border:#3d2a0a;--tag-txt:#120d04;
+          --footer-txt:#8a6030;--lens-fill1:rgba(60,30,5,0.65);--lens-fill2:rgba(100,55,10,0.48);
+        }
+        [data-theme="green"]{
+          --bg:#071810;--topbar:#030f08;--surface:#0a2415;--footer-bg:#020c05;
+          --surf2:#071a0e;--inp:#030f08;--inp-brd:#16a34a;--accent:#4ade80;
+          --accent2:#22d3ee;--green:#4ade80;--amber:#fbbf24;--red:#f87171;
+          --text:#ecfdf5;--muted:#6aad80;--border:#0d3a1c;--tag-txt:#030f08;
+          --footer-txt:#3a7a50;--lens-fill1:rgba(5,40,15,0.65);--lens-fill2:rgba(10,70,30,0.48);
+        }
+        [data-theme="steel"]{
+          --bg:#0f1923;--topbar:#0a1218;--surface:#162030;--footer-bg:#080f16;
+          --surf2:#111c2a;--inp:#0a1218;--inp-brd:#4a90d9;--accent:#5ba8e5;
+          --accent2:#7ecfff;--green:#56d364;--amber:#e3a835;--red:#f07070;
+          --text:#ddeeff;--muted:#7a9ec0;--border:#1e3a55;--tag-txt:#0a1218;
+          --footer-txt:#4a7ea0;--lens-fill1:rgba(10,40,80,0.70);--lens-fill2:rgba(20,70,130,0.50);
+        }
+        [data-theme="purple"]{
+          --bg:#0e0818;--topbar:#080510;--surface:#160d28;--footer-bg:#060410;
+          --surf2:#110920;--inp:#080510;--inp-brd:#7c3aed;--accent:#a78bfa;
+          --accent2:#f472b6;--green:#4ade80;--amber:#fbbf24;--red:#f87171;
+          --text:#f3e8ff;--muted:#9d78c4;--border:#2d1a4e;--tag-txt:#080510;
+          --footer-txt:#7a50a0;--lens-fill1:rgba(40,10,80,0.70);--lens-fill2:rgba(70,20,140,0.50);
+        }
+        [data-theme="red"]{
+          --bg:#180808;--topbar:#100404;--surface:#280d0d;--footer-bg:#0d0303;
+          --surf2:#1e0909;--inp:#100404;--inp-brd:#b91c1c;--accent:#f87171;
+          --accent2:#fbbf24;--green:#4ade80;--amber:#fbbf24;--red:#f87171;
+          --text:#fff0f0;--muted:#c07070;--border:#4e1010;--tag-txt:#100404;
+          --footer-txt:#904040;--lens-fill1:rgba(80,10,10,0.70);--lens-fill2:rgba(140,20,20,0.50);
+        }
+        *{margin:0;padding:0;box-sizing:border-box}
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+        input[type=number]{-moz-appearance:textfield}
+        html{height:100%}
+        body{
+          height:100%;background:var(--bg);color:var(--text);
+          font-family:'Nunito',sans-serif;display:flex;flex-direction:column;
+          overflow:hidden;
+          padding-top:max(var(--status-bar),env(safe-area-inset-top,0px));
+          padding-bottom:max(var(--nav-bar),env(safe-area-inset-bottom,0px));
+        }
+        .screen{display:none;flex-direction:column;flex:1;min-height:0;overflow:hidden;}
+        .screen.active{display:flex}
+        .app-header{background:var(--topbar);border-bottom:1px solid var(--border);padding:14px 16px 12px;flex-shrink:0;}
+        .app-header-top{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:6px;}
+        .app-header-icon{width:42px;height:42px;border-radius:10px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:900;color:var(--tag-txt);font-family:'Rajdhani',sans-serif;letter-spacing:-1px;box-shadow:0 2px 12px rgba(34,211,238,0.30);flex-shrink:0;}
+        .app-header-name{font-family:'Rajdhani',sans-serif;font-size:1.8rem;font-weight:700;color:var(--accent);letter-spacing:3px;line-height:1;}
+        .app-header-sub{font-size:.68rem;color:var(--muted);margin-top:2px;line-height:1.3;}
+        .app-header-pill{display:inline-block;margin:0 auto;font-size:.60rem;color:var(--muted);padding:3px 10px;background:var(--surf2);border-radius:6px;border:1px solid var(--border);text-align:center;}
+        .screen-badge{display:inline-block;margin-top:6px;font-family:'Rajdhani',sans-serif;font-size:.78rem;font-weight:700;letter-spacing:1.5px;color:var(--accent2);text-align:center;width:100%;}
+        .app-footer{background:var(--footer-bg);border-top:1px solid var(--border);text-align:center;font-size:.64rem;font-weight:600;color:var(--footer-txt);line-height:1.55;padding:5px 10px 6px;flex-shrink:0;}
+        .main-header{background:var(--topbar);border-bottom:1px solid var(--border);padding:10px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0;}
+        .main-logo-box{display:flex;flex-direction:column;line-height:1.15}
+        .main-logo-title{font-family:'Rajdhani',sans-serif;font-size:1.45rem;font-weight:700;color:var(--accent);letter-spacing:2px}
+        .main-logo-sub{font-size:.64rem;color:var(--muted)}
+        .main-spacer{flex:1}
+        .hbtn{background:var(--surf2);border:1px solid var(--border);color:var(--accent);font-family:'Nunito',sans-serif;font-size:.72rem;font-weight:700;padding:5px 10px;border-radius:6px;cursor:pointer;transition:background .18s}
+        .hbtn:hover{background:var(--border)}
+        .hbtn.red{color:var(--red);border-color:var(--red)}
+        .auth-body{flex:1;overflow-y:auto;display:flex;align-items:flex-start;justify-content:center;padding:14px 14px 14px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+        .auth-card{background:var(--surface);border-radius:14px;padding:20px 18px;width:100%;max-width:360px;border:1px solid var(--border);margin:0 auto;}
+        .auth-card h2{font-family:'Rajdhani',sans-serif;color:var(--accent2);font-size:1rem;letter-spacing:1.5px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+        .field-lbl{font-size:.8rem;color:var(--text);margin-bottom:4px;margin-top:9px;font-weight:600}
+        .field-lbl:first-child{margin-top:0}
+        input[type=text],input[type=number],input[type=password],select{width:100%;background:var(--inp);border:1.5px solid var(--inp-brd);border-radius:8px;color:var(--text);font-family:'Nunito',sans-serif;font-size:.88rem;padding:9px 12px;outline:none;transition:border-color .18s;}
+        input:focus,select:focus{border-color:var(--accent)}
+        select{appearance:none;cursor:pointer}
+        select option{background:var(--inp)}
+        .pw-row{display:flex;gap:6px;align-items:flex-end}
+        .pw-row>div{flex:1}
+        .eye-btn{background:var(--inp-brd);border:none;color:#fff;font-size:.67rem;font-weight:700;padding:0 9px;border-radius:8px;cursor:pointer;height:38px;font-family:'Nunito',sans-serif;white-space:nowrap;}
+        .auth-btn{width:100%;padding:10px;margin-top:9px;background:var(--accent);border:none;color:var(--tag-txt);font-family:'Nunito',sans-serif;font-weight:700;font-size:.88rem;border-radius:8px;cursor:pointer;transition:opacity .18s;}
+        .auth-btn:active{opacity:.8}
+        .auth-btn.ghost{background:var(--surf2);color:var(--text);border:1px solid var(--border)}
+        .auth-btn.danger{background:var(--surf2);color:var(--red);border:1px solid var(--red)}
+        .infostrip{background:var(--surf2);padding:4px 14px;display:flex;justify-content:space-between;font-size:.68rem;color:var(--muted);border-bottom:1px solid var(--border);flex-shrink:0;}
+        .infostrip .user{color:var(--green);font-weight:700}
+        .tabs{background:var(--surf2);display:flex;gap:3px;padding:5px 6px;border-bottom:1px solid var(--border);flex-wrap:wrap;flex-shrink:0;}
+        .tab{background:none;border:none;color:var(--text);font-family:'Nunito',sans-serif;font-size:.82rem;font-weight:600;padding:6px 13px;border-radius:8px;cursor:pointer;transition:all .18s;white-space:nowrap;}
+        .tab:hover{background:var(--border)}
+        .tab.active{background:var(--accent);color:var(--tag-txt)}
+        main{flex:1;overflow-y:auto;padding:11px 11px 14px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+        .panel{display:none}.panel.active{display:block}
+        .card{background:var(--surface);border-radius:var(--radius);padding:13px;margin-bottom:10px}
+        .sec-hdr{font-family:'Rajdhani',sans-serif;font-size:.82rem;font-weight:700;color:var(--accent2);letter-spacing:1.5px;margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+        .row2{display:flex;gap:8px}.row2>*{flex:1}.row2>.narrow{flex:0 0 88px}
+        .chk-row{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:.8rem;color:var(--muted)}
+        input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px;flex-shrink:0}
+        .density-tag{font-size:.9rem;font-weight:700;color:var(--green);font-family:'Share Tech Mono',monospace}
+        .custom-fields{display:none}
+        .expr-hint{font-size:.67rem;color:var(--amber);font-weight:400;margin-left:5px}
+        .ct-eval{font-size:.73rem;color:var(--green);margin-top:3px;font-family:'Share Tech Mono',monospace;min-height:15px}
+        canvas{width:100%;display:block;background:transparent}
+        .result-block{background:var(--surface);border-radius:var(--radius);padding:4px 0 8px;min-height:160px;border:1px solid var(--border)}
+        .res-title{font-family:'Rajdhani',sans-serif;font-size:1.0rem;font-weight:700;color:var(--accent);letter-spacing:1.5px;padding:10px 14px 6px;border-bottom:1px solid var(--border);margin-bottom:2px}
+        .res-section{padding:7px 14px 2px}
+        .res-sec-hdr{font-family:'Rajdhani',sans-serif;font-size:.76rem;font-weight:700;color:var(--accent2);letter-spacing:1px;margin-bottom:4px;text-transform:uppercase}
+        .res-row{display:flex;justify-content:space-between;align-items:baseline;padding:2px 0;border-bottom:1px solid rgba(14,46,78,0.5)}
+        .res-row:last-child{border-bottom:none}
+        .res-lbl{font-size:.77rem;color:var(--muted);font-weight:600;flex:1}
+        .res-val{font-family:'Share Tech Mono',monospace;font-size:.80rem;color:var(--text);text-align:right;flex:1}
+        .res-val.green{color:var(--green);font-weight:700;font-size:.88rem}
+        .res-val.amber{color:var(--amber);font-weight:700;font-size:.88rem}
+        .res-divider{height:1px;background:var(--border);margin:4px 14px}
+        .res-empty{padding:24px 14px;color:var(--muted);font-size:.82rem;font-style:italic}
+        .batch-info{background:var(--surf2);border-radius:8px;padding:7px 13px;margin-bottom:10px;font-size:.78rem;color:var(--muted)}
+        .batch-info span{color:var(--amber);font-weight:700}
+        .actbar{position:sticky;bottom:0;background:var(--topbar);border-top:1px solid var(--border);padding:6px 10px;display:flex;gap:7px;z-index:100;flex-shrink:0;}
+        .actbar button{flex:1;padding:10px 4px;border:none;border-radius:8px;font-family:'Nunito',sans-serif;font-size:.83rem;font-weight:700;cursor:pointer;transition:all .18s;}
+        .btn-calc{background:var(--accent);color:var(--tag-txt)}
+        .btn-save{background:var(--surf2);color:var(--text);border:1px solid var(--border)!important}
+        .btn-reset{background:var(--red);color:#fff}
+        .mat-table{width:100%;border-collapse:collapse;font-size:.79rem}
+        .mat-table th{background:var(--surf2);color:var(--accent);padding:7px 8px;text-align:left;font-family:'Rajdhani',sans-serif;letter-spacing:.8px;border-bottom:1px solid var(--border)}
+        .mat-table td{padding:5px 6px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+        .mat-table tr:hover td{background:rgba(34,211,238,.04)}
+        .mat-table input{background:var(--inp);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:4px 7px;font-size:.77rem;width:100%}
+        .mat-table input:focus{border-color:var(--accent);outline:none}
+        .add-mat-row{display:flex;gap:8px;margin-top:10px;align-items:flex-end;flex-wrap:wrap}
+        .add-mat-row>div{flex:1;min-width:100px}
+        .add-mat-row button{padding:9px 13px;background:var(--green);border:none;border-radius:8px;color:var(--tag-txt);font-weight:700;cursor:pointer;font-size:.81rem;white-space:nowrap;flex-shrink:0}
+        .mat-save-row{display:flex;gap:8px;margin-top:10px}
+        .mat-save-row button{flex:1;padding:9px;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:.81rem;font-family:'Nunito',sans-serif}
+        .del-btn{background:var(--red);border:none;color:#fff;border-radius:6px;padding:4px 9px;font-size:.73rem;cursor:pointer;font-weight:700}
+        .user-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
+        .user-row:last-child{border-bottom:none}
+        .report-meta{background:var(--surf2);border-radius:var(--radius);padding:11px 13px;margin-bottom:10px;border:1px solid var(--border)}
+        .report-meta-title{font-family:'Rajdhani',sans-serif;font-size:.78rem;font-weight:700;color:var(--accent2);letter-spacing:1.2px;margin-bottom:8px}
+        .meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+        .meta-grid .full{grid-column:1/-1}
+        .meta-lbl{font-size:.68rem;color:var(--muted);font-weight:600;margin-bottom:2px}
+        .meta-inp{width:100%;background:var(--inp);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-family:'Nunito',sans-serif;font-size:.82rem;padding:7px 10px;outline:none}
+        .meta-inp:focus{border-color:var(--accent)}
+        .res-val-inp{font-family:'Share Tech Mono',monospace;font-size:.80rem;color:var(--text);background:transparent;border:none;border-bottom:1px dashed var(--border);outline:none;text-align:right;width:100%;padding:1px 2px}
+        .res-val-inp:focus{border-bottom-color:var(--accent);background:rgba(34,211,238,.06);border-radius:3px}
+        .res-val-inp.green{color:var(--green);font-weight:700;font-size:.88rem}
+        .res-val-inp.amber{color:var(--amber);font-weight:700;font-size:.88rem}
+        .img-save-row{display:flex;gap:7px;margin-top:10px}
+        .img-save-row button{flex:1;padding:10px 4px;border:none;border-radius:8px;font-family:'Nunito',sans-serif;font-size:.78rem;font-weight:700;cursor:pointer}
+        .btn-png{background:#6366f1;color:#fff}
+        .btn-jpg{background:#0ea5e9;color:#fff}
+        #report-snap .res-row{border-bottom:1px solid #e2e8f0 !important}
+        #report-snap .res-lbl{color:#475569 !important}
+        #report-snap .res-val-inp{color:#1e293b !important;background:transparent;border-bottom:1px dashed #cbd5e1}
+        #report-snap .res-val-inp.green{color:#166534 !important;font-weight:700}
+        #report-snap .res-val-inp.amber{color:#92400e !important;font-weight:700}
+        #report-snap .res-sec-hdr{color:#1a2e44 !important}
+        #report-snap .res-title{color:#1a2e44 !important}
+        #report-snap .res-section{background:#fff}
+        #report-snap .res-divider{background:#e2e8f0 !important}
+        .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.80);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px}
+        .modal{background:var(--surface);border-radius:14px;padding:20px;max-width:400px;width:100%;border:1px solid var(--border);animation:popIn .16s ease;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+        @keyframes popIn{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+        .modal h3{font-family:'Rajdhani',sans-serif;color:var(--accent);font-size:1.1rem;letter-spacing:1px;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px}
+        .modal p{color:var(--text);font-size:.83rem;line-height:1.65;margin-bottom:14px;white-space:pre-wrap}
+        .modal-btns{display:flex;gap:8px}
+        .modal-btns button{flex:1;padding:10px;border:none;border-radius:8px;font-family:'Nunito',sans-serif;font-weight:700;cursor:pointer;font-size:.84rem}
+        .mbtn-ok{background:var(--accent);color:var(--tag-txt)}
+        .mbtn-cancel{background:var(--red);color:#fff}
+        .theme-fab{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:200}
+        .theme-fab-btn{background:var(--surf2);border:1px solid var(--border);border-right:none;color:var(--accent);font-size:.58rem;font-weight:700;padding:9px 5px;cursor:pointer;writing-mode:vertical-rl;letter-spacing:1px;border-radius:8px 0 0 8px;width:20px;display:block;}
+        .theme-panel{position:fixed;right:20px;top:50%;transform:translateY(-50%);z-index:199;background:var(--surface);border:1px solid var(--border);border-radius:10px 0 0 10px;padding:9px 7px;display:none;flex-direction:column;gap:4px;box-shadow:-4px 0 20px rgba(0,0,0,0.4);max-height:90vh;overflow-y:auto;}
+        .theme-panel.open{display:flex}
+        .theme-swatch{width:96px;padding:6px 9px;border-radius:7px;border:2px solid transparent;cursor:pointer;font-size:.73rem;font-weight:700;text-align:center;transition:all .18s}
+        .theme-swatch:hover{border-color:var(--accent)}
+        .theme-swatch.active{border-color:var(--accent)!important}
+        @media(min-width:480px){body{max-width:480px;margin:0 auto}.theme-fab{right:calc(50% - 240px)}.theme-panel{right:calc(50% - 240px + 20px)}}
+        @media(max-width:414px){.app-header-name{font-size:1.55rem}.main-logo-title{font-size:1.2rem}.tab{font-size:.76rem;padding:5px 10px}main{padding:9px 9px 12px}.card{padding:11px}.actbar button{font-size:.79rem;padding:10px 3px}.res-lbl,.res-val{font-size:.74rem}.auth-btn{font-size:.85rem;padding:11px}.app-footer{font-size:.58rem}}
+        @media(max-width:360px){.app-header-name{font-size:1.35rem}.tab{font-size:.70rem;padding:5px 7px}main{padding:8px 8px 10px}.actbar button{font-size:.72rem;padding:9px 2px}.app-footer{font-size:.53rem}}
+    </style>
+</head>
+<body>
+
+<!-- SCREEN 1 — LOGIN -->
+<div id="screen-login" class="screen active">
+    <div class="app-header">
+        <div class="app-header-top">
+            <div class="app-header-icon">OC</div>
+            <div>
+                <div class="app-header-name">OptiCost</div>
+                <div class="app-header-sub">LRMCE — Lens Raw Material Cost Estimator</div>
+            </div>
+        </div>
+        <div class="screen-badge">🔑 USER LOGIN</div>
+    </div>
+    <div class="auth-body">
+        <div class="auth-card">
+            <h2>LOGIN TO CONTINUE</h2>
+            <div class="field-lbl">Username</div>
+            <input type="text" id="login-user" placeholder="Enter username" autocomplete="username"/>
+            <div class="field-lbl" style="margin-top:9px">Password</div>
+            <div class="pw-row">
+                <div><input type="password" id="login-pass" placeholder="Enter password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+                <button class="eye-btn" onclick="toggleEye('login-pass',this)">SHOW</button>
+            </div>
+            <button class="auth-btn" onclick="doLogin()">⚡ LOGIN</button>
+            <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);text-align:center">
+                <span style="font-size:.72rem;color:var(--muted)">Administrator access: </span>
+                <button onclick="showScreen('screen-admin')" style="background:none;border:none;color:var(--accent2);font-size:.72rem;font-weight:700;cursor:pointer;text-decoration:underline;font-family:'Nunito',sans-serif;padding:0">Create / Manage Users →</button>
+            </div>
+        </div>
+    </div>
+    <div class="app-footer">Optics &amp; Allied Engg. Pvt. Ltd. (OPTICA) &nbsp;|&nbsp; www.opticsindia.com &nbsp;|&nbsp; +91-9886654729 &nbsp;|&nbsp; <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="3f565159507f504f4b565c4c56515b565e115c5052">[email&#160;protected]</a></div>
+</div>
+
+<!-- SCREEN 2 — ADMIN -->
+<div id="screen-admin" class="screen">
+    <div class="app-header">
+        <div class="app-header-top">
+            <div class="app-header-icon">OC</div>
+            <div><div class="app-header-name">OptiCost</div><div class="app-header-sub">LRMCE — Lens Raw Material Cost Estimator</div></div>
+        </div>
+        <div style="text-align:center"><span class="app-header-pill">v2.0 &nbsp;|&nbsp; Optics &amp; Allied Engg. Pvt. Ltd.</span></div>
+        <div class="screen-badge">🛡 ADMIN AUTHORIZATION</div>
+    </div>
+    <div class="auth-body">
+        <div class="auth-card">
+            <h2>ADMIN CREDENTIALS</h2>
+            <div class="field-lbl">Admin Username</div>
+            <input type="text" id="admin-user" placeholder="Admin username" autocomplete="off"/>
+            <div class="field-lbl" style="margin-top:9px">Admin Password</div>
+            <div class="pw-row">
+                <div><input type="password" id="admin-pass" placeholder="Admin password" autocomplete="off" onkeydown="if(event.key==='Enter')verifyAdmin()"/></div>
+                <button class="eye-btn" onclick="toggleEye('admin-pass',this)">SHOW</button>
+            </div>
+            <button class="auth-btn" onclick="verifyAdmin()">✅ Verify &amp; Continue</button>
+            <button class="auth-btn ghost" onclick="showScreen('screen-login')">← Back to Login</button>
+        </div>
+    </div>
+    <div class="app-footer">Optics &amp; Allied Engg. Pvt. Ltd. (OPTICA) &nbsp;|&nbsp; www.opticsindia.com &nbsp;|&nbsp; +91-9886654729</div>
+</div>
+
+<!-- SCREEN 3 — CREATE USER -->
+<div id="screen-create" class="screen">
+    <div class="app-header">
+        <div class="app-header-top">
+            <div class="app-header-icon">OC</div>
+            <div><div class="app-header-name">OptiCost</div><div class="app-header-sub">LRMCE — Lens Raw Material Cost Estimator</div></div>
+        </div>
+        <div style="text-align:center"><span class="app-header-pill">v2.0 &nbsp;|&nbsp; Optics &amp; Allied Engg. Pvt. Ltd.</span></div>
+        <div class="screen-badge">➕ CREATE NEW USER LOGIN</div>
+    </div>
+    <div class="auth-body">
+        <div class="auth-card">
+            <h2>NEW USER ACCOUNT</h2>
+            <div class="field-lbl">Username</div>
+            <input type="text" id="new-user" placeholder="Enter new username" autocomplete="off"/>
+            <div class="field-lbl" style="margin-top:9px">Password</div>
+            <div class="pw-row">
+                <div><input type="password" id="new-pass" placeholder="Enter password" autocomplete="new-password" onkeydown="if(event.key==='Enter')doCreateUser()"/></div>
+                <button class="eye-btn" onclick="toggleEye('new-pass',this)">SHOW</button>
+            </div>
+            <div class="field-lbl" style="margin-top:9px">Validity (days)</div>
+            <input type="number" id="new-days" value="90" min="1" placeholder="90"/>
+            <button class="auth-btn" onclick="doCreateUser()">✅ Create User Login</button>
+            <button class="auth-btn ghost" onclick="showManageUsers()">👥 Manage / Delete Users</button>
+            <button class="auth-btn danger" onclick="showScreen('screen-login')">← Exit to Login</button>
+        </div>
+    </div>
+    <div class="app-footer">Optics &amp; Allied Engg. Pvt. Ltd. (OPTICA) &nbsp;|&nbsp; www.opticsindia.com &nbsp;|&nbsp; +91-9886654729</div>
+</div>
+
+<!-- SCREEN 4 — MANAGE USERS -->
+<div id="screen-manage" class="screen">
+    <div class="app-header">
+        <div class="app-header-top">
+            <div class="app-header-icon">OC</div>
+            <div><div class="app-header-name">OptiCost</div><div class="app-header-sub">LRMCE — Lens Raw Material Cost Estimator</div></div>
+        </div>
+        <div style="text-align:center"><span class="app-header-pill">v2.0 &nbsp;|&nbsp; Optics &amp; Allied Engg. Pvt. Ltd.</span></div>
+        <div class="screen-badge">👥 MANAGE USER LOGINS</div>
+    </div>
+    <div class="auth-body" style="align-items:flex-start">
+        <div class="auth-card" style="max-width:420px">
+            <h2>USER ACCOUNTS</h2>
+            <div id="user-list" style="margin-bottom:12px;max-height:45vh;overflow-y:auto"></div>
+            <button class="auth-btn ghost" onclick="showScreen('screen-create')">← Back to Create User</button>
+            <button class="auth-btn danger" onclick="showScreen('screen-login')">← Exit to Login</button>
+        </div>
+    </div>
+    <div class="app-footer">Optics &amp; Allied Engg. Pvt. Ltd. (OPTICA) &nbsp;|&nbsp; www.opticsindia.com &nbsp;|&nbsp; +91-9886654729</div>
+</div>
+
+<!-- SCREEN 5 — MAIN APP -->
+<div id="screen-main" class="screen">
+    <div class="main-header">
+        <div class="main-logo-box">
+            <span class="main-logo-title">OptiCost</span>
+            <span class="main-logo-sub">Lens Raw Material Cost Estimator</span>
+        </div>
+        <div class="main-spacer"></div>
+        <button class="hbtn" onclick="showAbout()">ℹ️ INFO</button>
+        <button class="hbtn red" style="margin-left:5px" onclick="doLogout()">⏻ LOGOUT</button>
+    </div>
+    <div class="infostrip">
+        <span class="user" id="logged-in-label"></span>
+        <span><a href="https://www.opticsindia.com" target="_blank" style="color:var(--muted);text-decoration:none">www.opticsindia.com</a> &nbsp;|&nbsp; +91-9886654729</span>
+    </div>
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab('circular',this)">Circular</button>
+        <button class="tab" onclick="switchTab('rectangular',this)">Rect</button>
+        <button class="tab" onclick="switchTab('results',this)">Results</button>
+        <button class="tab" onclick="switchTab('materials',this)">📚 Materials</button>
+    </div>
+    <main>
+        <!-- CIRCULAR TAB -->
+        <div id="panel-circular" class="panel active">
+            <div class="card">
+                <div class="sec-hdr">⬡ GENERAL</div>
+                <div class="field-lbl">Material</div>
+                <select id="c-mat" onchange="matChanged('c');liveDrawLens()"></select>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:7px">
+                    <span style="font-size:.76rem;color:var(--muted)">Density:</span>
+                    <span class="density-tag" id="c-dens-tag">— g/cm³</span>
+                </div>
+                <div id="c-custom-fields" class="custom-fields">
+                    <div class="field-lbl">Custom Material Name</div>
+                    <input type="text" id="c-cn" placeholder="e.g. LaK50"/>
+                    <div class="field-lbl">Custom Density (g/cm³)</div>
+                    <input type="number" id="c-cd" placeholder="e.g. 2.51" step="0.001" oninput="liveDrawLens()"/>
+                </div>
+                <div class="field-lbl">Price per gram</div>
+                <div class="row2">
+                    <input type="text" id="c-price" placeholder="0.00" inputmode="decimal"/>
+                    <select class="narrow" id="c-curr"><option>INR</option><option>USD</option><option>EUR</option><option>RMB</option></select>
+                </div>
+                <div id="c-price-hint" style="font-size:.67rem;color:var(--muted);margin-top:3px;min-height:14px"></div>
+            </div>
+            <div class="card">
+                <div class="sec-hdr">📐 DIMENSIONS</div>
+                <div class="field-lbl">Outer Diameter OD (mm)</div>
+                <input type="number" id="c-od" placeholder="e.g. 25.4" step="0.001" oninput="syncCA();liveDrawLens()"/>
+                <div class="chk-row">
+                    <input type="checkbox" id="c-od-chk" onchange="syncCA()"/>
+                    <label for="c-od-chk">Use OD as both CA1 and CA2</label>
+                </div>
+                <div class="field-lbl">Center Thickness CT (mm)<span class="expr-hint">✦ arithmetic OK: 6+2, 10-0.5</span></div>
+                <input type="text" id="c-ct" placeholder="e.g. 5.0  or  6+2" inputmode="decimal"
+                       oninput="evalCT();liveDrawLens()" onblur="evalCT();liveDrawLens()"
+                       onkeydown="if(event.key==='Enter'){evalCT();liveDrawLens()}"/>
+                <div class="ct-eval" id="c-ct-result"></div>
+            </div>
+            <div class="card">
+                <div class="sec-hdr">◑ SURFACE 1</div>
+                <div class="field-lbl">Surface Type</div>
+                <select id="s1t" onchange="surfChanged()"><option>Plano</option><option>Convex</option><option>Concave</option></select>
+                <div id="s1-roc-row" style="display:none">
+                    <div class="field-lbl">ROC — Radius of Curvature (mm)</div>
+                    <input type="number" id="s1ri" placeholder="Positive value" step="0.001" oninput="liveDrawLens()"/>
+                </div>
+                <div class="field-lbl">Clear Aperture CA1 (mm)</div>
+                <div class="row2">
+                    <input type="number" id="c-ca1" placeholder="e.g. 23.0" step="0.001" oninput="liveDrawLens()"/>
+                    <label style="display:flex;align-items:center;gap:5px;font-size:.76rem;color:var(--muted);flex:0 0 auto">
+                        <input type="checkbox" id="s1od" onchange="syncCA()"/> =OD
+                    </label>
+                </div>
+            </div>
+            <div class="card">
+                <div class="sec-hdr">◐ SURFACE 2</div>
+                <div class="field-lbl">Surface Type</div>
+                <select id="s2t" onchange="surfChanged()"><option>Plano</option><option>Convex</option><option>Concave</option></select>
+                <div id="s2-roc-row" style="display:none">
+                    <div class="field-lbl">ROC — Radius of Curvature (mm)</div>
+                    <input type="number" id="s2ri" placeholder="Positive value" step="0.001" oninput="liveDrawLens()"/>
+                </div>
+                <div class="field-lbl">Clear Aperture CA2 (mm)</div>
+                <div class="row2">
+                    <input type="number" id="c-ca2" placeholder="e.g. 23.0" step="0.001" oninput="liveDrawLens()"/>
+                    <label style="display:flex;align-items:center;gap:5px;font-size:.76rem;color:var(--muted);flex:0 0 auto">
+                        <input type="checkbox" id="s2od" onchange="syncCA()"/> =OD
+                    </label>
+                </div>
+            </div>
+            <div class="card">
+                <div class="sec-hdr">👁 CROSS-SECTION PREVIEW</div>
+                <div id="live-summary" style="display:none;margin-bottom:10px;border-radius:8px;overflow:hidden;border:1px solid var(--border)">
+                    <div style="background:var(--surf2);padding:5px 10px;font-family:'Rajdhani',sans-serif;font-size:.71rem;font-weight:700;color:var(--accent2);letter-spacing:1px">⚡ LIVE ESTIMATE</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
+                        <div style="padding:8px 11px;border-right:1px solid var(--border)">
+                            <div style="font-size:.63rem;color:var(--muted);font-weight:600;margin-bottom:2px">FINISHED LENS WEIGHT</div>
+                            <div id="lw-lens-wt" style="font-family:'Share Tech Mono',monospace;font-size:.93rem;color:var(--green);font-weight:700">—</div>
+                        </div>
+                        <div style="padding:8px 11px">
+                            <div style="font-size:.63rem;color:var(--muted);font-weight:600;margin-bottom:2px">RAW BLANK WEIGHT</div>
+                            <div id="lw-blank-wt" style="font-family:'Share Tech Mono',monospace;font-size:.93rem;color:var(--amber);font-weight:700">—</div>
+                        </div>
+                    </div>
+                </div>
+                <canvas id="c-canvas" height="440" style="width:100%;display:block"></canvas>
+                <div style="font-size:.67rem;color:var(--muted);margin-top:5px;display:flex;gap:12px;flex-wrap:wrap">
+                    <span>— <span style="color:var(--accent2)">- -</span> CA1</span>
+                    <span>— <span style="color:var(--amber)">- -</span> CA2</span>
+                    <span>— <span style="color:var(--red)">- -</span> Optical axis</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- RECTANGULAR TAB -->
+        <div id="panel-rectangular" class="panel">
+            <div class="card">
+                <div class="sec-hdr">⬡ GENERAL</div>
+                <div class="field-lbl">Material</div>
+                <select id="r-mat" onchange="matChanged('r');liveDrawRect()"></select>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:7px">
+                    <span style="font-size:.76rem;color:var(--muted)">Density:</span>
+                    <span class="density-tag" id="r-dens-tag">— g/cm³</span>
+                </div>
+                <div id="r-custom-fields" class="custom-fields">
+                    <div class="field-lbl">Custom Material Name</div>
+                    <input type="text" id="r-cn" placeholder="e.g. Glass"/>
+                    <div class="field-lbl">Custom Density (g/cm³)</div>
+                    <input type="number" id="r-cd" placeholder="e.g. 2.51" step="0.001" oninput="liveDrawRect()"/>
+                </div>
+                <div class="field-lbl">Price per gram</div>
+                <div class="row2">
+                    <input type="text" id="r-price" placeholder="0.00" inputmode="decimal"/>
+                    <select class="narrow" id="r-curr"><option>INR</option><option>USD</option><option>EUR</option><option>RMB</option></select>
+                </div>
+                <div id="r-price-hint" style="font-size:.67rem;color:var(--muted);margin-top:3px;min-height:14px"></div>
+            </div>
+            <div class="card">
+                <div class="sec-hdr">📐 DIMENSIONS</div>
+                <div class="field-lbl">Length L (mm)</div>
+                <input type="number" id="r-L" placeholder="e.g. 50.0" step="0.001" oninput="liveDrawRect()"/>
+                <div class="field-lbl">Width W (mm)</div>
+                <input type="number" id="r-W" placeholder="e.g. 30.0" step="0.001" oninput="liveDrawRect()"/>
+                <div class="field-lbl">Thickness H (mm)</div>
+                <input type="number" id="r-H" placeholder="e.g. 10.0" step="0.001" oninput="liveDrawRect()"/>
+            </div>
+            <div class="card">
+                <div class="sec-hdr">👁 SHAPE PREVIEW</div>
+                <div id="r-live-summary" style="display:none;margin-bottom:10px;border-radius:8px;overflow:hidden;border:1px solid var(--border)">
+                    <div style="background:var(--surf2);padding:5px 10px;font-family:'Rajdhani',sans-serif;font-size:.71rem;font-weight:700;color:var(--accent2);letter-spacing:1px">⚡ LIVE ESTIMATE</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
+                        <div style="padding:8px 11px;border-right:1px solid var(--border)">
+                            <div style="font-size:.63rem;color:var(--muted);font-weight:600;margin-bottom:2px">BLANK WEIGHT</div>
+                            <div id="r-lw-wt" style="font-family:'Share Tech Mono',monospace;font-size:.93rem;color:var(--green);font-weight:700">—</div>
+                        </div>
+                        <div style="padding:8px 11px">
+                            <div style="font-size:.63rem;color:var(--muted);font-weight:600;margin-bottom:2px">VOLUME</div>
+                            <div id="r-lw-vol" style="font-family:'Share Tech Mono',monospace;font-size:.93rem;color:var(--amber);font-weight:700">—</div>
+                        </div>
+                    </div>
+                </div>
+                <canvas id="r-canvas" height="130"></canvas>
+            </div>
+        </div>
+
+        <!-- RESULTS TAB -->
+        <div id="panel-results" class="panel">
+            <div class="report-meta">
+                <div class="report-meta-title">📋 QUOTATION DETAILS</div>
+                <div style="margin-bottom:6px">
+                    <div class="meta-lbl">Manufacturer (From)</div>
+                    <div style="display:flex;gap:6px;align-items:center">
+                        <input class="meta-inp" id="rpt-mfr" type="text" oninput="refreshSnapHeaderIfVisible()" value="Optics &amp; Allied Engg. Pvt. Ltd. (OPTICA)" style="flex:1"/>
+                        <label style="flex-shrink:0;background:var(--surf2);border:1.5px solid var(--border);border-radius:7px;padding:6px 10px;cursor:pointer;font-size:.75rem;color:var(--accent);font-weight:700;white-space:nowrap">
+                            🖼 Logo
+                            <input type="file" id="logo-file-inp" accept="image/*" style="display:none" onchange="loadLogoFile(this)"/>
+                        </label>
+                        <button onclick="clearLogo()" style="flex-shrink:0;background:var(--surf2);border:1.5px solid var(--border);border-radius:7px;padding:6px 9px;cursor:pointer;font-size:.75rem;color:var(--red);font-weight:700">✕</button>
+                    </div>
+                    <div id="logo-preview" style="margin-top:5px;display:none">
+                        <img id="logo-img" src="" style="max-height:44px;max-width:160px;border-radius:5px;object-fit:contain;background:#fff;padding:3px"/>
+                    </div>
+                </div>
+                <div style="margin-bottom:6px">
+                    <div class="meta-lbl">Vendor / Customer (To)</div>
+                    <input class="meta-inp" id="rpt-vendor" type="text" oninput="refreshSnapHeaderIfVisible()" placeholder="e.g. Customer Company Name"/>
+                </div>
+                <div style="margin-bottom:6px">
+                    <div class="meta-lbl">Quotation Title</div>
+                    <input class="meta-inp" id="rpt-title" type="text" oninput="refreshSnapHeaderIfVisible()" placeholder="e.g. Lens Raw Material Cost Estimation"/>
+                </div>
+                <div class="meta-grid">
+                    <div>
+                        <div class="meta-lbl">Part / Drawing No.</div>
+                        <input class="meta-inp" id="rpt-partno" type="text" oninput="refreshSnapHeaderIfVisible()" placeholder="e.g. OA-2024-001"/>
+                    </div>
+                    <div>
+                        <div class="meta-lbl">Date</div>
+                        <input class="meta-inp" id="rpt-date" type="text" oninput="refreshSnapHeaderIfVisible()" placeholder="auto"/>
+                    </div>
+                </div>
+            </div>
+            <div class="batch-info">Records this session: <span id="batch-count">0</span></div>
+            <div id="report-snap" style="background:#ffffff;border-radius:10px;overflow:hidden;border:1.5px solid #d0dbe8;margin-bottom:4px">
+                <div id="snap-header" style="display:none;background:#1a2e44;padding:12px 16px 10px">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+                        <div style="flex:1">
+                            <div id="snap-mfr-txt" style="font-family:'Rajdhani',sans-serif;font-size:.95rem;font-weight:700;color:#22d3ee;letter-spacing:1.5px;line-height:1.2"></div>
+                            <div style="font-size:.6rem;color:#7db0cc;margin-top:1px">www.opticsindia.com &nbsp;|&nbsp; +91-9886654729</div>
+                        </div>
+                        <div id="snap-logo-box" style="display:none;flex-shrink:0">
+                            <img id="snap-logo-img" src="" style="max-height:48px;max-width:120px;object-fit:contain;border-radius:4px;background:#fff;padding:2px"/>
+                        </div>
+                    </div>
+                    <div style="margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,0.15);display:grid;grid-template-columns:1fr 1fr;gap:4px 14px">
+                        <div><span style="font-size:.6rem;color:#7db0cc;font-weight:700;text-transform:uppercase;letter-spacing:.8px">To / Vendor</span><div id="snap-vendor-txt" style="font-size:.75rem;color:#e8f4ff;font-weight:600;line-height:1.3"></div></div>
+                        <div><span style="font-size:.6rem;color:#7db0cc;font-weight:700;text-transform:uppercase;letter-spacing:.8px">Title</span><div id="snap-title-txt" style="font-size:.75rem;color:#e8f4ff;font-weight:600;line-height:1.3"></div></div>
+                        <div><span style="font-size:.6rem;color:#7db0cc;font-weight:700;text-transform:uppercase;letter-spacing:.8px">Part No.</span><div id="snap-partno-txt" style="font-size:.75rem;color:#fbbf24;font-weight:700">—</div></div>
+                        <div><span style="font-size:.6rem;color:#7db0cc;font-weight:700;text-transform:uppercase;letter-spacing:.8px">Date</span><div id="snap-date-txt" style="font-size:.75rem;color:#e8f4ff;font-weight:600">—</div></div>
+                    </div>
+                </div>
+                <div id="result-text" style="padding:6px 0 6px;min-height:80px">
+                    <div class="res-empty">Run a calculation to see results here.</div>
+                </div>
+                <div id="snap-footer" style="display:none;background:#0c1d30;padding:6px 16px;border-top:1px solid #0e2e4e;font-size:.6rem;color:#7db0cc;text-align:center">
+                    Generated by OptiCost LRMCE v2.0 &nbsp;|&nbsp; Optics &amp; Allied Engg. Pvt. Ltd. &nbsp;|&nbsp; www.opticsindia.com
+                </div>
+            </div>
+            <div class="img-save-row">
+                <button class="btn-png" onclick="saveReportImage('png')">📷 PNG</button>
+                <button class="btn-png" onclick="saveReportImage('doc')" style="background:#1d6f42">📄 Word Doc</button>
+                <button class="btn-save" onclick="doSave()" style="background:var(--surf2);color:var(--text);border:1px solid var(--border)">💾 CSV</button>
+                <button onclick="shareResultsText()" style="background:#7c3aed;color:#fff;flex:1;padding:10px 4px;border:none;border-radius:8px;font-family:'Nunito',sans-serif;font-size:.78rem;font-weight:700;cursor:pointer">↗ Share IMG</button>
+            </div>
+            <p style="font-size:.63rem;color:var(--muted);margin-top:4px;text-align:center">PNG/CSV/Doc → Downloads &nbsp;|&nbsp; ↗ Share IMG = share image via apps</p>
+        </div>
+
+        <!-- MATERIALS TAB -->
+        <div id="panel-materials" class="panel">
+            <div class="card">
+                <div class="sec-hdr">📚 MATERIAL LIBRARY EDITOR</div>
+                <p style="font-size:.73rem;color:var(--muted);margin-bottom:10px;line-height:1.6">Edit inline. Changes auto-save. Click <b style="color:var(--accent)">💾 Save Library</b> to confirm.</p>
+                <div style="overflow-x:auto">
+                    <table class="mat-table">
+                        <thead><tr><th>#</th><th>Material Name</th><th>Density (g/cm³)</th><th>Price/gm (INR)</th><th></th></tr></thead>
+                        <tbody id="mat-tbody"></tbody>
+                    </table>
+                </div>
+                <div class="add-mat-row">
+                    <div><div class="field-lbl">New Name</div><input type="text" id="new-mat-name" placeholder="e.g. N-LAK34"/></div>
+                    <div><div class="field-lbl">Density</div><input type="number" id="new-mat-dens" placeholder="2.51" step="0.001"/></div>
+                    <div><div class="field-lbl">Price/gm (INR)</div><input type="text" inputmode="decimal" id="new-mat-price" placeholder="0.00"/></div>
+                    <button onclick="addMatRow()">+ Add</button>
+                </div>
+                <div class="mat-save-row">
+                    <button onclick="saveMaterials()" style="background:var(--accent);color:var(--tag-txt)">💾 Save Library</button>
+                    <button onclick="resetMaterials()" style="background:var(--surf2);color:var(--text);border:1px solid var(--border)">↺ Reset Defaults</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div class="actbar">
+        <button class="btn-calc" onclick="doCalc()">⚡ Calculate</button>
+        <button class="btn-save" onclick="doSave()">💾 Save CSV</button>
+        <button class="btn-reset" onclick="doReset()">↺ Reset</button>
+    </div>
+    <div class="app-footer">Optics &amp; Allied Engg. Pvt. Ltd. (OPTICA) &nbsp;|&nbsp; +91-9886654729 &nbsp;|&nbsp; <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="31585f575e715e4145585242585f5558501f525e5c">[email&#160;protected]</a> &nbsp;|&nbsp; www.opticsindia.com</div>
+</div>
+
+<!-- MODAL -->
+<div id="modal-overlay" class="modal-overlay" style="display:none" onclick="closeModal(event)">
+    <div class="modal" onclick="event.stopPropagation()">
+        <h3 id="modal-title">Info</h3>
+        <p id="modal-msg"></p>
+        <div class="modal-btns" id="modal-btns">
+            <button class="mbtn-ok" onclick="_closeModal()">OK</button>
+        </div>
+    </div>
+</div>
+
+<!-- Theme switcher -->
+<div class="theme-fab">
+    <button class="theme-fab-btn" onclick="toggleThemePanel()" title="Themes">🎨</button>
+</div>
+<div class="theme-panel" id="theme-panel">
+    <div style="font-size:.65rem;color:var(--muted);font-weight:700;margin-bottom:2px;text-align:center;letter-spacing:1px">THEME</div>
+    <button class="theme-swatch active" id="sw-dark"   onclick="setTheme('dark')"   style="background:#060e18;color:#22d3ee;border-color:#22d3ee">🌑 Dark</button>
+    <button class="theme-swatch"        id="sw-light"  onclick="setTheme('light')"  style="background:#f4f7fb;color:#1d4ed8">☀️ Light</button>
+    <button class="theme-swatch"        id="sw-white"  onclick="setTheme('white')"  style="background:#ffffff;color:#222;border:2px solid #ddd">⬜ White</button>
+    <button class="theme-swatch"        id="sw-steel"  onclick="setTheme('steel')"  style="background:#0f1923;color:#5ba8e5">🔵 Steel</button>
+    <button class="theme-swatch"        id="sw-purple" onclick="setTheme('purple')" style="background:#0e0818;color:#a78bfa">🟣 Purple</button>
+    <button class="theme-swatch"        id="sw-warm"   onclick="setTheme('warm')"   style="background:#1a1208;color:#f59e0b">🟠 Warm</button>
+    <button class="theme-swatch"        id="sw-green"  onclick="setTheme('green')"  style="background:#071810;color:#4ade80">🟢 Green</button>
+    <button class="theme-swatch"        id="sw-red"    onclick="setTheme('red')"    style="background:#180808;color:#f87171">🔴 Red</button>
+</div>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+'use strict';
+
+// ═══════════════════════════════════════
+//  ANDROID BRIDGE — SAFE WRAPPER
+// ═══════════════════════════════════════
+function _hasAndroidBridge(){
+  try{
+    return typeof Android!=="undefined"
+        && Android!==null
+        && typeof Android.isAvailable==="function"
+        && Android.isAvailable()===true;
+  }catch(e){ return false; }
+}
+
+// ═══════════════════════════════════════
+//  MATERIAL DATABASE
+// ═══════════════════════════════════════
+const DEFAULT_MATERIALS=[
+  {name:"Germanium",dens:5.323,ppg:0},{name:"Silicon",dens:2.33,ppg:0},
+  {name:"AMTIR-1",dens:4.41,ppg:0},{name:"AMTIR-2",dens:4.50,ppg:0},{name:"AMTIR-5",dens:4.62,ppg:0},
+  {name:"Sapphire",dens:3.98,ppg:0},{name:"BaF2",dens:4.89,ppg:0},{name:"CaF2",dens:3.18,ppg:0},
+  {name:"MgF2",dens:3.18,ppg:0},{name:"LiF",dens:2.64,ppg:0},
+  {name:"ZnSe",dens:5.27,ppg:0},{name:"ZnS-MS",dens:4.09,ppg:0},{name:"IRG22",dens:4.41,ppg:0},
+  {name:"IRG24",dens:4.47,ppg:0},{name:"IRG25",dens:4.66,ppg:0},{name:"IRG27",dens:3.20,ppg:0},
+  {name:"CLEARTRAN",dens:4.09,ppg:0},{name:"Silica Glass",dens:2.20,ppg:0},
+  {name:"7979 Fused Silica R",dens:2.203,ppg:0},{name:"7979 Fused Silica T",dens:2.203,ppg:0},
+  {name:"Fused Silica 7980 0F",dens:2.201,ppg:0},{name:"OE Fused Silica 7980",dens:2.201,ppg:0},
+  {name:"Clearceram-Z",dens:2.55,ppg:0},{name:"B270",dens:2.56,ppg:0},{name:"N-BK7",dens:2.51,ppg:0},
+  {name:"N-F2",dens:2.65,ppg:0},{name:"SF2",dens:3.86,ppg:0},{name:"SF3",dens:4.64,ppg:0},
+  {name:"SF4",dens:4.79,ppg:0},{name:"N-SF5",dens:4.07,ppg:0},{name:"N-SF6",dens:3.37,ppg:0},
+  {name:"N-FK58",dens:3.646,ppg:0},{name:"N-LAK8",dens:3.75,ppg:0},
+  {name:"RG 830",dens:2.94,ppg:0},{name:"RG 850",dens:2.93,ppg:0},{name:"RG1000",dens:2.73,ppg:0},
+  {name:"7979 SP",dens:2.21,ppg:0},{name:"Aluminum",dens:2.70,ppg:0},
+  {name:"Alkali Silicate",dens:3.02,ppg:0},{name:"Aluminosilicate Glass",dens:2.64,ppg:0},
+  {name:"Annealed Glass",dens:2.50,ppg:0},{name:"Borosilicate Glass",dens:2.23,ppg:0},
+  {name:"PMMA (Acrylic)",dens:1.19,ppg:0},{name:"Polycarbonate",dens:1.20,ppg:0}
+];
+let MATERIALS=[];
+
+// ═══════════════════════════════════════
+//  MATERIAL PERSISTENCE — FIXED
+// ═══════════════════════════════════════
+function loadMaterials(){
+  // PATH 1: Android internal storage (most reliable in APK)
+  if(_hasAndroidBridge()){
+    try{
+      const json=Android.loadFile("materials.json");
+      if(json && json.length>2){
+        const parsed=JSON.parse(json);
+        if(Array.isArray(parsed) && parsed.length>0){
+          MATERIALS=parsed.map(m=>({name:"",dens:1,ppg:0,...m}));
+          console.log("Loaded from Android internal: "+MATERIALS.length+" materials");
+          return;
+        }
+      }
+    }catch(e){ console.warn("Android.loadFile failed:",e); }
+  }
+  // PATH 2: localStorage fallback (browser testing)
+  try{
+    const s=localStorage.getItem("opticost_materials");
+    if(s){
+      const parsed=JSON.parse(s);
+      if(Array.isArray(parsed) && parsed.length>0){
+        MATERIALS=parsed.map(m=>({name:"",dens:1,ppg:0,...m}));
+        console.log("Loaded from localStorage: "+MATERIALS.length+" materials");
+        return;
+      }
+    }
+  }catch(e){ console.warn("localStorage load failed:",e); }
+  // PATH 3: defaults
+  MATERIALS=DEFAULT_MATERIALS.map(m=>({...m}));
+  console.log("Using default materials: "+MATERIALS.length);
+}
+
+function persistMaterials(){
+  if(MATERIALS.length===0){
+    console.warn("persistMaterials: empty array, skipping");
+    return;
+  }
+  const json=JSON.stringify(MATERIALS);
+  // Save to Android internal storage (permanent)
+  if(_hasAndroidBridge()){
+    try{
+      Android.saveFile_internal("materials.json",json);
+    }catch(e){ console.warn("Android.saveFile_internal failed:",e); }
+  }
+  // Always save to localStorage as backup
+  try{ localStorage.setItem("opticost_materials",json); }catch(e){}
+}
+
+function getDens(name){const m=MATERIALS.find(x=>x.name===name);return m?m.dens:null;}
+function getPPG(name){const m=MATERIALS.find(x=>x.name===name);return m?(m.ppg||0):0;}
+function fmtPPG(val){const n=Math.round(val*10000)/10000;return parseFloat(n.toFixed(4)).toString();}
+
+// ═══════════════════════════════════════
+//  AUTH — IndexedDB
+// ═══════════════════════════════════════
+const ADMIN_USER="Optica", ADMIN_PASS="shreeganesha";
+let _db=null;
+
+function _openDB(){
+  return new Promise((res,rej)=>{
+    if(_db){res(_db);return;}
+    const req=indexedDB.open("opticost_db",2);
+    req.onupgradeneeded=e=>{
+      const db=e.target.result;
+      if(!db.objectStoreNames.contains("users"))
+        db.createObjectStore("users",{keyPath:"username"});
+      if(!db.objectStoreNames.contains("kv"))
+        db.createObjectStore("kv",{keyPath:"k"});
+    };
+    req.onsuccess=e=>{_db=e.target.result;res(_db);};
+    req.onerror=e=>rej(e.target.error);
+  });
+}
+function _getAllUsers(){
+  return _openDB().then(db=>new Promise((res,rej)=>{
+    const tx=db.transaction("users","readonly");
+    const req=tx.objectStore("users").getAll();
+    req.onsuccess=()=>{const map={};req.result.forEach(u=>{map[u.username]=u;});res(map);};
+    req.onerror=e=>rej(e.target.error);
+  }));
+}
+function _putUser(obj){
+  return _openDB().then(db=>new Promise((res,rej)=>{
+    const tx=db.transaction("users","readwrite");
+    const req=tx.objectStore("users").put(obj);
+    req.onsuccess=()=>res();
+    req.onerror=e=>rej(e.target.error);
+  }));
+}
+function _deleteUser(username){
+  return _openDB().then(db=>new Promise((res,rej)=>{
+    const tx=db.transaction("users","readwrite");
+    const req=tx.objectStore("users").delete(username);
+    req.onsuccess=()=>res();
+    req.onerror=e=>rej(e.target.error);
+  }));
+}
+function _seedDefaultUser(){
+  _getAllUsers().then(users=>{
+    if(!users["optica"]){
+      const exp=new Date();exp.setFullYear(exp.getFullYear()+10);
+      _putUser({username:"optica",password:btoa("shreeganesha"),expires:exp.toISOString()});
+    }
+  }).catch(e=>console.warn("Seed error:",e));
+}
+
+// ═══════════════════════════════════════
+//  AUTH ACTIONS
+// ═══════════════════════════════════════
+function doLogin(){
+  const u=v("login-user").trim(),p=v("login-pass").trim();
+  if(!u||!p){showModal("Error","Username and password required.");return;}
+  _getAllUsers().then(users=>{
+    const rec=users[u.toLowerCase()];
+    if(!rec){showModal("Login Failed","User '"+u+"' does not exist.");return;}
+    let pw;try{pw=atob(rec.password);}catch{showModal("Login Failed","Corrupt user record.");return;}
+    if(pw!==p){showModal("Login Failed","Incorrect password.");return;}
+    if(new Date()>new Date(rec.expires)){showModal("Login Failed","Account expired. Contact admin.");return;}
+    currentUser=u;
+    try{sessionStorage.setItem("opticost_session",u);}catch(e){}
+    document.getElementById("logged-in-label").textContent="👤 "+u;
+    showScreen("screen-main");
+  }).catch(e=>showModal("Error","Storage error:\n"+e.message));
+}
+function verifyAdmin(){
+  const u=v("admin-user").trim(),p=v("admin-pass").trim();
+  if(!u||!p){showModal("Error","Admin username and password required.");return;}
+  if(u===ADMIN_USER&&p===ADMIN_PASS){
+    document.getElementById("admin-user").value="";
+    document.getElementById("admin-pass").value="";
+    showScreen("screen-create");
+  }else{showModal("Access Denied","Invalid admin credentials.");}
+}
+function doCreateUser(){
+  const u=v("new-user").trim(),p=v("new-pass").trim(),d=parseInt(v("new-days")||"90");
+  if(!u||!p){showModal("Error","Username and password cannot be empty.");return;}
+  if(isNaN(d)||d<1){showModal("Error","Validity must be a positive number.");return;}
+  const exp=new Date();exp.setDate(exp.getDate()+d);
+  _putUser({username:u.toLowerCase(),password:btoa(p),expires:exp.toISOString()})
+    .then(()=>{
+      document.getElementById("new-user").value="";
+      document.getElementById("new-pass").value="";
+      document.getElementById("new-days").value="90";
+      showModal("✅ User Created","User '"+u+"' created.\nValid for "+d+" days.\n\nTap OK to return to Login.",()=>showScreen("screen-login"));
+    })
+    .catch(e=>showModal("Error","Failed to save user.\n"+e.message));
+}
+function showManageUsers(){
+  showScreen("screen-manage");
+  const list=document.getElementById("user-list");
+  list.innerHTML='<div style="color:var(--muted);font-size:.8rem;padding:8px">Loading…</div>';
+  _getAllUsers().then(users=>{
+    const keys=Object.keys(users);
+    if(!keys.length){list.innerHTML='<div style="color:var(--muted);font-size:.8rem;padding:8px">No users found.</div>';return;}
+    list.innerHTML=keys.map(k=>{
+      const u=users[k];const exp=new Date(u.expires);const expired=new Date()>exp;
+      return`<div class="user-row">
+        <div><div style="font-weight:700;font-size:.87rem;color:var(--text)">👤 ${k}</div>
+        <div style="font-size:.68rem;color:${expired?'var(--red)':'var(--muted)'}">Expires: ${exp.toLocaleDateString()}${expired?' — EXPIRED':''}</div></div>
+        ${k==='optica'?'<span style="font-size:.66rem;color:var(--muted);padding:4px 8px;border:1px solid var(--border);border-radius:5px">default</span>':`<button class="del-btn" onclick="deleteUser('${k}')">✕ Delete</button>`}
+      </div>`;
+    }).join('');
+  }).catch(()=>{list.innerHTML='<div style="color:var(--red);font-size:.8rem;padding:8px">Error loading users.</div>';});
+}
+function deleteUser(username){
+  showConfirm("Delete User","Delete user '"+username+"'?\nThis cannot be undone.",()=>{
+    _deleteUser(username).then(()=>showManageUsers()).catch(()=>showModal("Error","Failed to delete user."));
+  });
+}
+function doLogout(){
+  showConfirm("Logout","Are you sure you want to log out?",()=>{
+    currentUser=null;
+    try{sessionStorage.removeItem("opticost_session");}catch(e){}
+    document.getElementById("login-user").value="";
+    document.getElementById("login-pass").value="";
+    showScreen("screen-login");
+  });
+}
+
+// ═══════════════════════════════════════
+//  SCREEN & TAB
+// ═══════════════════════════════════════
+function showScreen(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+}
+function toggleEye(id,btn){
+  const i=document.getElementById(id);
+  i.type=i.type==="password"?"text":"password";
+  btn.textContent=i.type==="password"?"SHOW":"HIDE";
+}
+let currentTab="circular";
+function switchTab(key,btn){
+  currentTab=key;
+  document.querySelectorAll(".tab").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
+  document.getElementById("panel-"+key).classList.add("active");
+  if(key==="materials") renderMatTable();
+}
+
+// ═══════════════════════════════════════
+//  MATERIAL DROPDOWNS
+// ═══════════════════════════════════════
+function populateMats(){
+  ["c-mat","r-mat"].forEach(id=>{
+    const sel=document.getElementById(id),cur=sel.value;
+    sel.innerHTML="";
+    MATERIALS.forEach(m=>{const o=document.createElement("option");o.value=m.name;o.textContent=m.name;sel.appendChild(o);});
+    const co=document.createElement("option");co.value="Custom Density";co.textContent="Custom Density";sel.appendChild(co);
+    if([...sel.options].some(o=>o.value===cur)) sel.value=cur;
+    matChanged(id==="c-mat"?"c":"r");
+  });
+}
+function matChanged(p){
+  const t=document.getElementById(p+"-mat").value;
+  const tag=document.getElementById(p+"-dens-tag");
+  const cf=document.getElementById(p+"-custom-fields");
+  const priceEl=document.getElementById(p+"-price");
+  const priceHint=document.getElementById(p+"-price-hint");
+  if(t==="Custom Density"){
+    cf.style.display="block";tag.textContent="Enter density below";tag.style.color="var(--amber)";
+    if(priceHint)priceHint.textContent="";
+  }else{
+    cf.style.display="none";const d=getDens(t);tag.style.color="var(--green)";
+    tag.textContent=d!=null?d.toFixed(3)+" g/cm³":"—";
+    if(priceEl){
+      const ppg=getPPG(t);
+      if(ppg>0){priceEl.value=fmtPPG(ppg);if(priceHint){priceHint.textContent="✦ Auto-loaded from library";priceHint.style.color="var(--green)";}}
+      else{priceEl.value="";if(priceHint){priceHint.textContent="Enter price or set in Materials library";priceHint.style.color="var(--muted)";}}
+    }
+  }
+}
+function surfChanged(){
+  ["s1","s2"].forEach(s=>{
+    document.getElementById(s+"-roc-row").style.display=
+      document.getElementById(s+"t").value==="Plano"?"none":"block";
+  });
+  liveDrawLens();
+}
+function syncCA(){
+  const od=parseFloat(document.getElementById("c-od").value)||0;
+  const chk=document.getElementById("c-od-chk").checked;
+  const s1=document.getElementById("s1od").checked;
+  const s2=document.getElementById("s2od").checked;
+  if(chk){
+    ["c-ca1","c-ca2"].forEach(id=>{const e=document.getElementById(id);e.value=od||"";e.disabled=true;});
+    liveDrawLens();return;
+  }
+  const ca1=document.getElementById("c-ca1"),ca2=document.getElementById("c-ca2");
+  ca1.disabled=s1;ca2.disabled=s2;
+  if(s1&&od)ca1.value=od;if(s2&&od)ca2.value=od;
+  if(!s1)ca1.disabled=false;if(!s2)ca2.disabled=false;
+  liveDrawLens();
+}
+function safeEval(expr){
+  expr=String(expr).trim().replace(/[^0-9+\-*/().eE ]/g,"");
+  if(!expr)return NaN;
+  try{return Function('"use strict";return ('+expr+')')();}catch{return NaN;}
+}
+function getCTVal(){const raw=v("c-ct").trim();const val=safeEval(raw);return isNaN(val)?parseFloat(raw):val;}
+function evalCT(){
+  const raw=v("c-ct").trim(),hint=document.getElementById("c-ct-result");
+  if(!raw){hint.textContent="";return;}
+  const val=safeEval(raw);
+  if(!isNaN(val)&&val>0){hint.textContent="= "+val.toFixed(4)+" mm";hint.style.color="var(--green)";}
+  else if(!isNaN(val)&&val<=0){hint.textContent="⚠ CT must be > 0";hint.style.color="var(--red)";}
+  else{hint.textContent="⚠ Invalid expression";hint.style.color="var(--red)";}
+  liveDrawLens();
+}
+function sf(s,d=0){const val=parseFloat(String(s).replace(",",""));return isNaN(val)?d:val;}
+
+// ═══════════════════════════════════════
+//  MATERIAL LIBRARY EDITOR — FIXED
+// ═══════════════════════════════════════
+function renderMatTable(){
+  const tb=document.getElementById("mat-tbody");tb.innerHTML="";
+  MATERIALS.forEach((m,i)=>{
+    const tr=document.createElement("tr");tr.dataset.idx=i;
+    tr.innerHTML=`<td style="color:var(--muted);font-size:.73rem;padding-right:4px">${i+1}</td>
+      <td><input type="text" class="mat-name" value="${m.name.replace(/"/g,'&quot;')}" style="width:100%" oninput="autoSaveMats()"/></td>
+      <td><input type="number" class="mat-dens" value="${m.dens}" step="0.001" min="0.001" style="max-width:88px" oninput="autoSaveMats()"/></td>
+      <td><input type="text" inputmode="decimal" class="mat-ppg" value="${m.ppg?fmtPPG(m.ppg):'0'}" placeholder="0.00" style="max-width:96px" oninput="autoSaveMats()"/></td>
+      <td><button class="del-btn" onclick="delMat(${i})">✕</button></td>`;
+    tb.appendChild(tr);
+  });
+}
+
+// FIXED: save to Android bridge IMMEDIATELY (no debounce), debounce only localStorage
+let _matSaveTimer=null;
+function autoSaveMats(){
+  // Write current table to memory immediately
+  readMatTableIntoMemory();
+  // Save to Android bridge IMMEDIATELY — critical for app-close safety
+  if(_hasAndroidBridge() && MATERIALS.length>0){
+    try{ Android.saveFile_internal("materials.json",JSON.stringify(MATERIALS)); }catch(e){}
+  }
+  // Debounce localStorage (less critical, slightly slower)
+  clearTimeout(_matSaveTimer);
+  _matSaveTimer=setTimeout(()=>{
+    try{ if(MATERIALS.length>0) localStorage.setItem("opticost_materials",JSON.stringify(MATERIALS)); }catch(e){}
+  },400);
+}
+
+function readMatTableIntoMemory(){
+  const rows=[...document.querySelectorAll("#mat-tbody tr")];
+  if(rows.length===0) return; // Don't overwrite with empty if table not rendered
+  const updated=[];
+  rows.forEach(tr=>{
+    const n=tr.querySelector(".mat-name"),d=tr.querySelector(".mat-dens"),pg=tr.querySelector(".mat-ppg");
+    const name=n?n.value.trim():"",dens=parseFloat(d?d.value:0),ppg=Math.round((parseFloat(pg?pg.value:0)||0)*10000)/10000;
+    if(name&&dens>0) updated.push({name,dens,ppg});
+  });
+  if(updated.length>0) MATERIALS=updated;
+}
+
+function delMat(i){
+  if(MATERIALS.length<=1){showModal("Error","At least one material must remain.");return;}
+  showConfirm("Delete","Delete '"+MATERIALS[i].name+"'?",()=>{
+    readMatTableIntoMemory();MATERIALS.splice(i,1);renderMatTable();populateMats();
+    persistMaterials();
+  });
+}
+function addMatRow(){
+  readMatTableIntoMemory();
+  const name=document.getElementById("new-mat-name").value.trim();
+  const dens=parseFloat(document.getElementById("new-mat-dens").value);
+  const ppg=Math.round((parseFloat(document.getElementById("new-mat-price").value)||0)*10000)/10000;
+  if(!name){showModal("Error","Material name required.");return;}
+  if(isNaN(dens)||dens<=0){showModal("Error","Density must be > 0.");return;}
+  if(MATERIALS.find(m=>m.name===name)){showModal("Error","'"+name+"' already exists.");return;}
+  MATERIALS.push({name,dens,ppg});
+  document.getElementById("new-mat-name").value="";
+  document.getElementById("new-mat-dens").value="";
+  document.getElementById("new-mat-price").value="";
+  renderMatTable();populateMats();persistMaterials();
+  showModal("Added ✔","'"+name+"' added and saved.");
+}
+function saveMaterials(){
+  readMatTableIntoMemory();
+  persistMaterials();
+  populateMats();
+  showModal("Saved ✔","Material library saved permanently.\nDropdowns updated.");
+}
+function resetMaterials(){
+  showConfirm("Reset Library","Restore factory defaults? Custom additions will be lost.",()=>{
+    MATERIALS=DEFAULT_MATERIALS.map(m=>({...m}));persistMaterials();renderMatTable();populateMats();
+    showModal("Done","Material library reset to defaults.");
+  });
+}
+
+// ═══════════════════════════════════════
+//  CALC ENGINE
+// ═══════════════════════════════════════
+function calcSag(stype,roc,ca){
+  const st=stype.toLowerCase();if(st==="plano")return 0;
+  const R=parseFloat(roc),h=parseFloat(ca)/2;
+  if(isNaN(R)||R<=0)throw new Error("ROC must be a positive number.");
+  if(isNaN(h)||h<=0)throw new Error("CA must be > 0.");
+  if(R<h)throw new Error("ROC "+R.toFixed(3)+" < CA/2 "+h.toFixed(3)+" — invalid geometry.");
+  return R-Math.sqrt(R*R-h*h);
+}
+function edgeThick(s1,s2,ct,g1,g2){
+  let ET=ct;
+  if(s1==="convex")ET-=g1;else if(s1==="concave")ET+=g1;
+  if(s2==="convex")ET-=g2;else if(s2==="concave")ET+=g2;
+  return ET;
+}
+function totalThick(ct,s1,s2,g1,g2){
+  let t=ct;
+  if(s1==="concave")t+=Math.abs(g1);if(s2==="concave")t+=Math.abs(g2);
+  if(["plano","convex"].includes(s1)&&["plano","convex"].includes(s2))return ct;
+  return t;
+}
+function capVol(dia,sag){
+  sag=Math.abs(sag);if(!sag)return 0;
+  const r=dia/2;return(Math.PI*sag/6)*(3*r*r+sag*sag);
+}
+function lensVol(OD,CA1,CA2,g1,g2,s1,s2,CT){
+  const r=OD/2,ET=edgeThick(s1,s2,CT,g1,g2);
+  const Vc=Math.PI*r*r*ET,tt=totalThick(CT,s1,s2,g1,g2),Vrb=Math.PI*r*r*tt;
+  const c1=capVol(CA1,g1),c2=capVol(CA2,g2);
+  const V1=s1==="convex"?c1:(s1==="concave"?-c1:0);
+  const V2=s2==="convex"?c2:(s2==="concave"?-c2:0);
+  return{Vrb,Vc,Vt:Math.max(Vc+V1+V2,0)};
+}
+
+// ═══════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════
+let currentUser=null,recs=[];
+
+// ═══════════════════════════════════════
+//  CALCULATE
+// ═══════════════════════════════════════
+function doCalc(){
+  try{
+    if(currentTab==="rectangular")calcRect();else calcCirc();
+    switchTab("results",document.querySelectorAll(".tab")[2]);
+    const cnt=recs.length;
+    document.getElementById("batch-count").textContent=cnt;
+    refreshSnapHeader();
+    if(_logoDataUrl){
+      const prev=document.getElementById("logo-preview");
+      const img=document.getElementById("logo-img");
+      if(img&&!img.src){img.src=_logoDataUrl;if(prev)prev.style.display="block";}
+    }
+  }catch(e){showModal("Input Error",e.message);}
+}
+
+let _logoDataUrl="";
+function loadLogoFile(inp){
+  const file=inp.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    _logoDataUrl=e.target.result;
+    const prev=document.getElementById("logo-preview");
+    const img=document.getElementById("logo-img");
+    img.src=_logoDataUrl;prev.style.display="block";
+    refreshSnapHeaderIfVisible();
+  };
+  r.readAsDataURL(file);
+}
+function clearLogo(){
+  _logoDataUrl="";
+  document.getElementById("logo-preview").style.display="none";
+  document.getElementById("logo-img").src="";
+  refreshSnapHeaderIfVisible();
+}
+function refreshSnapHeaderIfVisible(){if(recs.length>0)refreshSnapHeader();}
+function refreshSnapHeader(){
+  const mfr=document.getElementById("rpt-mfr").value.trim();
+  const vendor=document.getElementById("rpt-vendor").value.trim();
+  const title=document.getElementById("rpt-title").value.trim();
+  const partno=document.getElementById("rpt-partno").value.trim();
+  const dateVal=document.getElementById("rpt-date").value.trim()||new Date().toLocaleDateString();
+  const hasData=recs.length>0;
+  document.getElementById("snap-header").style.display=hasData?"block":"none";
+  document.getElementById("snap-footer").style.display=hasData?"block":"none";
+  document.getElementById("snap-mfr-txt").textContent=mfr||"Optics & Allied Engg. Pvt. Ltd. (OPTICA)";
+  document.getElementById("snap-vendor-txt").textContent=vendor||"—";
+  document.getElementById("snap-title-txt").textContent=title||"Lens Raw Material Cost Estimation";
+  document.getElementById("snap-partno-txt").textContent=partno||"—";
+  document.getElementById("snap-date-txt").textContent=dateVal;
+  const logoSrc=_logoDataUrl||"";
+  const snapLogoBox=document.getElementById("snap-logo-box");
+  const snapLogoImg=document.getElementById("snap-logo-img");
+  if(logoSrc){snapLogoBox.style.display="block";snapLogoImg.src=logoSrc;}
+  else{snapLogoBox.style.display="none";}
+}
+
+let _rowIdx=0;
+function row(lbl,val,cls="",rid=""){
+  const id=rid||("rr"+(++_rowIdx));
+  return`<div class="res-row" id="${id}" style="display:flex;align-items:center;gap:4px">
+    <span class="res-lbl" style="flex:1.2">${lbl}</span>
+    <span class="res-val ${cls}" style="flex:1.5"><input class="res-val-inp ${cls}" value="${String(val).replace(/"/g,'&quot;')}" spellcheck="false" style="width:100%"/></span>
+    <button onclick="delResRow('${id}')" style="flex-shrink:0;background:none;border:none;color:var(--red);cursor:pointer;font-size:.82rem;padding:0 3px;line-height:1" title="Delete row">✕</button>
+  </div>`;
+}
+function delResRow(id){const el=document.getElementById(id);if(el)el.remove();}
+
+function calcCirc(){
+  const sel=v("c-mat"),cur=v("c-curr"),ppg=sf(v("c-price"));
+  let dens,mat;
+  if(sel==="Custom Density"){dens=sf(v("c-cd"));mat=v("c-cn").trim()||"Custom";if(dens<=0)throw new Error("Custom density must be > 0.");}
+  else{dens=getDens(sel);mat=sel;if(!dens)throw new Error("Unknown material.");}
+  const CTv=getCTVal();
+  const OD=sf(v("c-od")),CA1=sf(v("c-ca1")),CA2=sf(v("c-ca2"));
+  if(OD<=0)throw new Error("Outer Diameter must be > 0.");
+  if(isNaN(CTv)||CTv<=0)throw new Error("Center Thickness must be > 0 (check expression).");
+  if(CA1<=0)throw new Error("CA1 must be > 0.");if(CA2<=0)throw new Error("CA2 must be > 0.");
+  if(CA1>OD)throw new Error("CA1 cannot exceed OD.");if(CA2>OD)throw new Error("CA2 cannot exceed OD.");
+  const s1=v("s1t").toLowerCase(),s2=v("s2t").toLowerCase();
+  const g1=calcSag(s1,v("s1ri"),CA1),g2=calcSag(s2,v("s2ri"),CA2);
+  const tt=totalThick(CTv,s1,s2,g1,g2),ET=edgeThick(s1,s2,CTv,g1,g2);
+  const{Vrb,Vt}=lensVol(OD,CA1,CA2,g1,g2,s1,s2,CTv);
+  const Vtc=Vt/1000,wt=Vtc*dens,cost=wt*ppg;
+  const Vrbc=Vrb/1000,rwt=Vrbc*dens,rcost=rwt*ppg;
+  const sd1=s1==="convex"?g1:(s1==="concave"?-g1:0);
+  const sd2=s2==="convex"?g2:(s2==="concave"?-g2:0);
+  drawLensCanvas("c-canvas",{OD,CT:CTv,CA1,CA2,s1,s2,g1:Math.abs(g1),g2:Math.abs(g2)});
+  document.getElementById("result-text").innerHTML=`
+<div class="res-title">🔵 CIRCULAR LENS RESULTS</div>
+<div class="res-section"><div class="res-sec-hdr">Material</div>
+${row("Material",mat)}${row("Density",dens.toFixed(4)+" g/cm³")}${row("Price / gram",cur+" "+fmtPPG(ppg))}
+</div><div class="res-divider"></div>
+<div class="res-section"><div class="res-sec-hdr">Sag</div>
+${row("Surface 1 (CA="+CA1+" mm)",(sd1>=0?"+":"")+sd1.toFixed(4)+" mm")}
+${row("Surface 2 (CA="+CA2+" mm)",(sd2>=0?"+":"")+sd2.toFixed(4)+" mm")}
+</div><div class="res-divider"></div>
+<div class="res-section"><div class="res-sec-hdr">Thickness</div>
+${row("Center CT",CTv.toFixed(4)+" mm")}${row("Edge",ET.toFixed(4)+" mm")}${row("Blank Total",tt.toFixed(4)+" mm")}
+</div><div class="res-divider"></div>
+<div class="res-section"><div class="res-sec-hdr">Finished Lens</div>
+${row("Volume",Vtc.toFixed(4)+" cm³")}${row("Weight",wt.toFixed(4)+" g")}${row("COST",cur+" "+cost.toFixed(2),"green")}
+</div><div class="res-divider"></div>
+<div class="res-section"><div class="res-sec-hdr">Raw Blank</div>
+${row("Volume",Vrbc.toFixed(4)+" cm³")}${row("Weight",rwt.toFixed(4)+" g")}${row("COST",cur+" "+rcost.toFixed(2),"amber")}
+</div>`;
+  recs.push({
+    "Aperture":"Circular","Lens No":recs.length+1,"Material":mat,
+    "Density(g/cm3)":dens.toFixed(3),"Price/gram":cur+" "+fmtPPG(ppg),
+    "OD(mm)":OD,"CT(mm)":CTv.toFixed(4),
+    "S1":v("s1t"),"ROC1(mm)":s1==="plano"?"Inf":v("s1ri"),"CA1(mm)":CA1,
+    "S2":v("s2t"),"ROC2(mm)":s2==="plano"?"Inf":v("s2ri"),"CA2(mm)":CA2,
+    "Sag1(mm)":sd1.toFixed(4),"Sag2(mm)":sd2.toFixed(4),
+    "Edge(mm)":ET.toFixed(4),"BlankThk(mm)":tt.toFixed(4),
+    "LensVol(cm3)":Vtc.toFixed(4),"LensWt(g)":wt.toFixed(4),"LensCost":cur+" "+cost.toFixed(2),
+    "BlankVol(cm3)":Vrbc.toFixed(4),"BlankWt(g)":rwt.toFixed(4),"BlankCost":cur+" "+rcost.toFixed(2)
+  });
+}
+function calcRect(){
+  const sel=v("r-mat"),cur=v("r-curr"),ppg=sf(v("r-price"));
+  let dens,mat;
+  if(sel==="Custom Density"){dens=sf(v("r-cd"));mat=v("r-cn").trim()||"Custom";if(dens<=0)throw new Error("Custom density must be > 0.");}
+  else{dens=getDens(sel);mat=sel;if(!dens)throw new Error("Unknown material.");}
+  const L=sf(v("r-L")),W=sf(v("r-W")),H=sf(v("r-H"));
+  if(L<=0||W<=0||H<=0)throw new Error("Length, Width and Thickness must all be > 0.");
+  const Vtc=L*W*H/1000,wt=Vtc*dens,cost=wt*ppg;
+  drawRectCanvas("r-canvas",{L,H});
+  document.getElementById("result-text").innerHTML=`
+<div class="res-title">🟦 RECTANGULAR BLOCK RESULTS</div>
+<div class="res-section"><div class="res-sec-hdr">Material</div>
+${row("Material",mat)}${row("Density",dens.toFixed(4)+" g/cm³")}${row("Price / gram",cur+" "+fmtPPG(ppg))}
+</div><div class="res-divider"></div>
+<div class="res-section"><div class="res-sec-hdr">Dimensions</div>
+${row("Length",L.toFixed(3)+" mm")}${row("Width",W.toFixed(3)+" mm")}${row("Height / Thk",H.toFixed(3)+" mm")}
+</div><div class="res-divider"></div>
+<div class="res-section"><div class="res-sec-hdr">Raw Blank</div>
+${row("Volume",Vtc.toFixed(4)+" cm³")}${row("Weight",wt.toFixed(4)+" g")}${row("COST",cur+" "+cost.toFixed(2),"green")}
+</div>`;
+  recs.push({
+    "Aperture":"Rectangular","Block No":recs.length+1,"Material":mat,
+    "Density(g/cm3)":dens.toFixed(3),"Price/gram":cur+" "+fmtPPG(ppg),
+    "L(mm)":L.toFixed(3),"W(mm)":W.toFixed(3),"H(mm)":H.toFixed(3),
+    "BlankVol(cm3)":Vtc.toFixed(4),"BlankWt(g)":wt.toFixed(4),"BlankCost":cur+" "+cost.toFixed(2)
+  });
+  document.getElementById("batch-count").textContent=recs.length;
+}
+
+// Called by Android after successful save
+window._onAndroidSaveSuccess=function(filename){
+  showModal("✅ Saved to Downloads","File saved:\n"+filename+"\n\nOpen your Files app → Downloads to view it.");
+};
+
+// ═══════════════════════════════════════
+//  SAVE CSV — FIXED
+// ═══════════════════════════════════════
+function _saveCSVFile(csvText,fname){
+  // PATH 1: Android native saveCSV (raw text — Java handles UTF-8+BOM)
+  if(_hasAndroidBridge()){
+    try{
+      Android.saveCSV(csvText,fname);
+      // Success notification comes from Java via _onAndroidSaveSuccess
+      return;
+    }catch(e){ console.warn("Android.saveCSV failed, falling back:",e); }
+  }
+  // PATH 2: browser blob fallback
+  const blob=new Blob(["\uFEFF"+csvText],{type:"text/csv;charset=utf-8;"});
+  _masterSaveBinary(blob,fname,"text/csv","CSV Saved");
+}
+
+// ═══════════════════════════════════════
+//  SAVE BINARY FILE — FIXED
+// ═══════════════════════════════════════
+function _masterSaveBinary(blob,fname,mimeType,successMsg){
+  const reader=new FileReader();
+  reader.onload=function(){
+    const dataUrl=reader.result;
+    // PATH 1: Android Native Bridge
+    if(_hasAndroidBridge()){
+      try{
+        Android.saveFile(dataUrl,fname,mimeType);
+        return;
+      }catch(e){ console.warn("Android.saveFile failed:",e); }
+    }
+    // PATH 2: Web Share API with file (works on Android Chrome / iOS Safari)
+    if(navigator.share && navigator.canShare){
+      try{
+        const file=new File([blob],fname,{type:mimeType});
+        if(navigator.canShare({files:[file]})){
+          navigator.share({files:[file],title:"OptiCost – "+fname,text:"Lens cost estimate from OptiCost LRMCE"})
+            .then(()=>showModal("✅ Shared","File shared successfully."))
+            .catch(err=>{if(err.name!=="AbortError") _dataUriSave(dataUrl,fname,successMsg);});
+          return;
+        }
+      }catch(e){ console.warn("Web Share failed:",e); }
+    }
+    // PATH 3: Data URI anchor fallback
+    _dataUriSave(dataUrl,fname,successMsg);
+  };
+  reader.onerror=()=>showModal("Error","Could not prepare file for saving.");
+  reader.readAsDataURL(blob);
+}
+
+function _dataUriSave(dataUrl,fname,successMsg){
+  try{
+    // Method 1: anchor click (works in most browsers)
+    const a=document.createElement("a");
+    a.href=dataUrl;
+    a.download=fname;
+    a.style.cssText="position:fixed;top:-999px;left:-999px;opacity:0;";
+    document.body.appendChild(a);
+    // Use both click() and dispatchEvent for WebView compatibility
+    try{ a.click(); }catch(e1){
+      try{ a.dispatchEvent(new MouseEvent("click",{bubbles:true,cancelable:true,view:window})); }catch(e2){}
+    }
+    setTimeout(()=>{try{document.body.removeChild(a);}catch{}},1500);
+    showModal("✅ "+successMsg,"File: "+fname+"\n\n📂 Check your Downloads folder.\n\nIf save did not work, use ↗ Share IMG button instead.");
+  }catch(e){
+    showModal("Cannot Auto-Save","Use the ↗ Share IMG / Share button to export the report.\n\nError: "+e.message);
+  }
+}
+
+function doSave(){
+  if(!recs.length){showModal("No Data","Nothing to save yet.\n\nPress Calculate first.");return;}
+  const fname="OptiCost_"+new Date().toISOString().slice(0,10)+".csv";
+  const allHdrs=[...new Set(recs.flatMap(r=>Object.keys(r)))];
+  const esc=val=>'"'+String(val??'').replace(/"/g,'""')+'"';
+  const lines=[allHdrs.map(esc).join(","),...recs.map(r=>allHdrs.map(h=>esc(r[h]??'')).join(","))];
+  const csvText=lines.join("\r\n");
+  _saveCSVFile(csvText,fname);
+}
+
+// ═══════════════════════════════════════
+//  BUILD REPORT IMAGE ON CANVAS
+// ═══════════════════════════════════════
+function _buildReportCanvas(callback){
+  refreshSnapHeader();
+  const mfr=document.getElementById("rpt-mfr").value.trim()||"Optics & Allied Engg. Pvt. Ltd. (OPTICA)";
+  const vendor=document.getElementById("rpt-vendor").value.trim()||"—";
+  const title=document.getElementById("rpt-title").value.trim()||"Lens Raw Material Cost Estimation";
+  const partno=document.getElementById("rpt-partno").value.trim()||"—";
+  const dateVal=document.getElementById("rpt-date").value.trim()||new Date().toLocaleDateString();
+  const allNodes=[];
+  document.querySelectorAll("#result-text > *").forEach(el=>{
+    if(el.classList.contains("res-sec-hdr")){allNodes.push({type:"hdr",text:el.textContent.trim()});}
+    else if(el.classList.contains("res-title")){allNodes.push({type:"title",text:el.textContent.trim()});}
+    else if(el.classList.contains("res-divider")){allNodes.push({type:"div"});}
+    else if(el.classList.contains("res-row")){
+      const lbl=el.querySelector(".res-lbl"),inp=el.querySelector(".res-val-inp");
+      if(lbl&&inp) allNodes.push({type:"row",label:lbl.textContent.trim(),value:inp.value.trim(),green:inp.classList.contains("green"),amber:inp.classList.contains("amber")});
+    }else if(el.classList.contains("res-section")){
+      el.querySelectorAll(".res-sec-hdr").forEach(h=>allNodes.push({type:"hdr",text:h.textContent.trim()}));
+      el.querySelectorAll(".res-row").forEach(r=>{
+        const lbl=r.querySelector(".res-lbl"),inp=r.querySelector(".res-val-inp");
+        if(lbl&&inp) allNodes.push({type:"row",label:lbl.textContent.trim(),value:inp.value.trim(),green:inp.classList.contains("green"),amber:inp.classList.contains("amber")});
+      });
+    }
+  });
+  const W=800,PAD=28,HEADER_H=110,META_H=60,ROW_H=30,SEC_H=24,DIV_H=10,TITLE_H=36,FOOTER_H=36;
+  let contentH=TITLE_H;
+  allNodes.forEach(n=>{
+    if(n.type==="row")contentH+=ROW_H;
+    else if(n.type==="hdr")contentH+=SEC_H;
+    else if(n.type==="div")contentH+=DIV_H;
+    else if(n.type==="title")contentH+=TITLE_H;
+  });
+  const H=HEADER_H+META_H+contentH+FOOTER_H+PAD*2;
+  const cv=document.createElement("canvas");
+  cv.width=W*2;cv.height=H*2;
+  const ctx=cv.getContext("2d");ctx.scale(2,2);
+  ctx.fillStyle="#ffffff";ctx.fillRect(0,0,W,H);
+  ctx.fillStyle="#1a2e44";ctx.fillRect(0,0,W,HEADER_H);
+  ctx.fillStyle="#22d3ee";ctx.font="bold 18px Arial,sans-serif";ctx.fillText(mfr,PAD,30);
+  ctx.fillStyle="#7db0cc";ctx.font="11px Arial,sans-serif";
+  ctx.fillText("www.opticsindia.com  |  +91-9886654729  |  info@opticsindia.com",PAD,48);
+  ctx.strokeStyle="rgba(255,255,255,0.18)";ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(PAD,60);ctx.lineTo(W-PAD,60);ctx.stroke();
+  const metaY=70;
+  ctx.font="bold 9px Arial,sans-serif";ctx.fillStyle="#7db0cc";
+  ctx.fillText("TO / VENDOR",PAD,metaY);ctx.fillText("TITLE",W/2,metaY);
+  ctx.fillStyle="#e8f4ff";ctx.font="12px Arial,sans-serif";
+  ctx.fillText(vendor.substring(0,35),PAD,metaY+14);ctx.fillText(title.substring(0,35),W/2,metaY+14);
+  ctx.font="bold 9px Arial,sans-serif";ctx.fillStyle="#7db0cc";
+  ctx.fillText("PART NO.",PAD,metaY+30);ctx.fillText("DATE",W/2,metaY+30);
+  ctx.fillStyle="#fbbf24";ctx.font="bold 12px Arial,sans-serif";ctx.fillText(partno.substring(0,25),PAD,metaY+44);
+  ctx.fillStyle="#e8f4ff";ctx.font="12px Arial,sans-serif";ctx.fillText(dateVal,W/2,metaY+44);
+  if(_logoDataUrl){
+    const logoImg=new Image();
+    logoImg.onload=function(){
+      ctx.drawImage(logoImg,W-PAD-90,8,80,46);
+      _finishCanvas(ctx,cv,W,H,PAD,HEADER_H,META_H,FOOTER_H,ROW_H,SEC_H,DIV_H,TITLE_H,allNodes,callback);
+    };
+    logoImg.onerror=function(){_finishCanvas(ctx,cv,W,H,PAD,HEADER_H,META_H,FOOTER_H,ROW_H,SEC_H,DIV_H,TITLE_H,allNodes,callback);};
+    logoImg.src=_logoDataUrl;
+  }else{
+    _finishCanvas(ctx,cv,W,H,PAD,HEADER_H,META_H,FOOTER_H,ROW_H,SEC_H,DIV_H,TITLE_H,allNodes,callback);
+  }
+}
+function _finishCanvas(ctx,cv,W,H,PAD,HEADER_H,META_H,FOOTER_H,ROW_H,SEC_H,DIV_H,TITLE_H,allNodes,callback){
+  let y=HEADER_H+META_H+PAD;
+  allNodes.forEach(n=>{
+    if(n.type==="title"){
+      ctx.fillStyle="#1a2e44";ctx.font="bold 15px Arial,sans-serif";
+      ctx.fillText(n.text.replace(/[^\x20-\x7E]/g,""),PAD,y+20);y+=TITLE_H;
+    }else if(n.type==="hdr"){
+      ctx.fillStyle="#e8f0f7";ctx.fillRect(PAD,y,W-PAD*2,SEC_H-4);
+      ctx.fillStyle="#1a2e44";ctx.font="bold 10px Arial,sans-serif";ctx.fillText(n.text,PAD+8,y+14);y+=SEC_H;
+    }else if(n.type==="div"){
+      ctx.fillStyle="#e2e8f0";ctx.fillRect(PAD,y+DIV_H/2,W-PAD*2,1);y+=DIV_H;
+    }else if(n.type==="row"){
+      ctx.fillStyle=n.green?"#f0fdf4":n.amber?"#fffbeb":"#ffffff";
+      ctx.fillRect(PAD,y,W-PAD*2,ROW_H-2);
+      ctx.fillStyle="#475569";ctx.font="13px Arial,sans-serif";ctx.fillText(n.label,PAD+8,y+ROW_H-10);
+      const valColor=n.green?"#166534":n.amber?"#92400e":"#1e293b";
+      ctx.fillStyle=valColor;ctx.font=n.green||n.amber?"bold 13px Arial,sans-serif":"13px Arial,sans-serif";
+      const valW=ctx.measureText(n.value).width;ctx.fillText(n.value,W-PAD-valW-8,y+ROW_H-10);
+      ctx.strokeStyle="#e2e8f0";ctx.lineWidth=0.5;
+      ctx.beginPath();ctx.moveTo(PAD,y+ROW_H-2);ctx.lineTo(W-PAD,y+ROW_H-2);ctx.stroke();
+      y+=ROW_H;
+    }
+  });
+  ctx.fillStyle="#0c1d30";ctx.fillRect(0,H-FOOTER_H,W,FOOTER_H);
+  ctx.fillStyle="#7db0cc";ctx.font="10px Arial,sans-serif";ctx.textAlign="center";
+  ctx.fillText("Generated by OptiCost LRMCE v2.0  |  Optics & Allied Engg. Pvt. Ltd.  |  www.opticsindia.com",W/2,H-FOOTER_H+22);
+  ctx.textAlign="left";
+  callback(cv);
+}
+
+// ═══════════════════════════════════════
+//  SAVE REPORT AS IMAGE — FIXED
+// ═══════════════════════════════════════
+function saveReportImage(fmt){
+  if(fmt==="doc"){saveReportDoc();return;}
+  if(!recs.length){showModal("No Data","Run a calculation first.");return;}
+  showModal("Generating…","Building report image, please wait…");
+  setTimeout(()=>{
+    try{
+      _buildReportCanvas(function(cv){
+        const mime="image/png";
+        const ext="png";
+        const fname="OptiCost_Report_"+new Date().toISOString().slice(0,19).replace(/[T:]/g,"-")+"."+ext;
+        cv.toBlob(function(blob){
+          _closeModal();
+          if(!blob){showModal("Error","Could not generate image.");return;}
+          // PATH 1: Android saveFile with base64
+          if(_hasAndroidBridge()){
+            try{
+              const reader=new FileReader();
+              reader.onload=function(){
+                try{
+                  Android.saveFile(reader.result,fname,mime);
+                }catch(e){
+                  console.warn("Android.saveFile failed:",e);
+                  _masterSaveBinary(blob,fname,mime,"Image Saved");
+                }
+              };
+              reader.onerror=()=>_masterSaveBinary(blob,fname,mime,"Image Saved");
+              reader.readAsDataURL(blob);
+              return;
+            }catch(e){ console.warn("saveFile bridge error:",e); }
+          }
+          _masterSaveBinary(blob,fname,mime,"Image Saved");
+        },mime,0.95);
+      });
+    }catch(e){_closeModal();showModal("Error","Image build failed: "+e.message);}
+  },80);
+}
+
+// ═══════════════════════════════════════
+//  SHARE AS IMAGE — FIXED
+// ═══════════════════════════════════════
+function shareResultsText(){
+  if(!recs.length){showModal("No Data","Run a calculation first.");return;}
+  showModal("Preparing…","Building report image…");
+  setTimeout(()=>{
+    try{
+      _buildReportCanvas(function(cv){
+        _closeModal();
+        const fname="OptiCost_Report_"+new Date().toISOString().slice(0,10)+".png";
+        // PATH 1: Android native shareImage
+        if(_hasAndroidBridge()){
+          try{
+            const dataUrl=cv.toDataURL("image/png",1);
+            Android.shareImage(dataUrl,fname);
+            return;
+          }catch(e){ console.warn("Android.shareImage failed:",e); }
+        }
+        // PATH 2: Web Share API
+        cv.toBlob(function(blob){
+          if(navigator.share){
+            const file=new File([blob],fname,{type:"image/png"});
+            if(navigator.canShare&&navigator.canShare({files:[file]})){
+              navigator.share({files:[file],title:"OptiCost Report",text:"Lens cost estimate"})
+                .then(()=>{}).catch(err=>{if(err.name!=="AbortError") _masterSaveBinary(blob,fname,"image/png","Image Saved");});
+              return;
+            }
+          }
+          _masterSaveBinary(blob,fname,"image/png","Image Saved");
+        },"image/png",1);
+      });
+    }catch(e){_closeModal();showModal("Error","Share failed: "+e.message);}
+  },80);
+}
+
+function saveReportDoc(){
+  if(!recs.length){showModal("No Data","Run a calculation first.");return;}
+  refreshSnapHeader();
+  const mfr=document.getElementById("rpt-mfr").value.trim()||"Optics & Allied Engg. Pvt. Ltd. (OPTICA)";
+  const vendor=document.getElementById("rpt-vendor").value.trim()||"—";
+  const title=document.getElementById("rpt-title").value.trim()||"Lens Raw Material Cost Estimation";
+  const partno=document.getElementById("rpt-partno").value.trim()||"—";
+  const dateVal=document.getElementById("rpt-date").value.trim()||new Date().toLocaleDateString();
+  const logoSrc=_logoDataUrl||"";
+  const rows=[...document.querySelectorAll("#result-text .res-row")];
+  let tableRows="";
+  rows.forEach(r=>{
+    const lbl=r.querySelector(".res-lbl"),inp=r.querySelector(".res-val-inp");
+    if(!lbl||!inp)return;
+    const isGreen=inp.classList.contains("green"),isAmber=inp.classList.contains("amber");
+    const color=isGreen?"#166534":isAmber?"#92400e":"#1e293b";
+    const bg=isGreen?"#f0fdf4":isAmber?"#fffbeb":"#ffffff";
+    tableRows+=`<tr style="background:${bg}"><td style="padding:5px 10px;font-size:11pt;color:#475569;font-weight:600;border-bottom:1px solid #e2e8f0;width:50%">${lbl.textContent}</td><td style="padding:5px 10px;font-size:11pt;color:${color};font-weight:700;text-align:right;border-bottom:1px solid #e2e8f0">${inp.value}</td></tr>`;
+  });
+  const logoHtml=logoSrc?`<img src="${logoSrc}" style="max-height:60px;max-width:150px;object-fit:contain"/>`:"";
+  const docHtml=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><style>body{font-family:Calibri,Arial,sans-serif;margin:30px;color:#1e293b}table{width:100%;border-collapse:collapse}.hdr-table td{padding:3px 6px;font-size:10pt}.footer{margin-top:20px;font-size:8pt;color:#94a3b8;text-align:center;border-top:1px solid #e2e8f0;padding-top:8px}</style></head><body>
+<table class="hdr-table" style="border-bottom:2px solid #1a2e44;margin-bottom:14px;padding-bottom:8px"><tr><td style="width:70%"><div style="font-size:15pt;font-weight:700;color:#1a2e44">${mfr}</div><div style="font-size:9pt;color:#64748b">www.opticsindia.com | +91-9886654729 | info@opticsindia.com</div></td><td style="text-align:right">${logoHtml}</td></tr></table>
+<h1 style="background:#1a2e44;color:#fff;padding:8px 14px;margin-bottom:10px">${title}</h1>
+<table class="hdr-table" style="margin-bottom:14px;background:#f8fafc;border:1px solid #e2e8f0"><tr><td><b>To:</b></td><td>${vendor}</td><td><b>Part No.:</b></td><td style="color:#92400e;font-weight:700">${partno}</td><td><b>Date:</b></td><td>${dateVal}</td></tr></table>
+<table>${tableRows}</table>
+<div class="footer">Generated by OptiCost LRMCE v2.0 | ${mfr} | www.opticsindia.com</div></body></html>`;
+  const fname="OptiCost_Report_"+new Date().toISOString().slice(0,10)+".doc";
+  const blob=new Blob(["\ufeff"+docHtml],{type:"application/msword;charset=utf-8"});
+  _masterSaveBinary(blob,fname,"application/msword","Word Doc Saved");
+}
+
+// ═══════════════════════════════════════
+//  RESET
+// ═══════════════════════════════════════
+function doReset(){
+  showConfirm("Reset All","Clear all inputs and recorded data?",()=>{
+    ["c-od","c-ct","c-ca1","c-ca2","s1ri","s2ri","c-price",
+     "r-L","r-W","r-H","r-price","c-cn","c-cd","r-cn","r-cd"].forEach(id=>{
+      const e=document.getElementById(id);if(e)e.value="";
+    });
+    ["c-od-chk","s1od","s2od"].forEach(id=>{document.getElementById(id).checked=false;});
+    document.getElementById("s1t").value="Plano";document.getElementById("s2t").value="Plano";
+    document.getElementById("c-curr").value="INR";document.getElementById("r-curr").value="INR";
+    document.getElementById("c-ct-result").textContent="";
+    ["c-mat","r-mat"].forEach(id=>{const s=document.getElementById(id);s.selectedIndex=0;matChanged(id==="c-mat"?"c":"r");});
+    surfChanged();recs=[];
+    document.getElementById("batch-count").textContent="0";
+    document.getElementById("result-text").innerHTML='<div class="res-empty">Run a calculation to see results here.</div>';
+    document.getElementById("snap-header").style.display="none";
+    document.getElementById("snap-footer").style.display="none";
+    document.getElementById("rpt-mfr").value="Optics &amp; Allied Engg. Pvt. Ltd. (OPTICA)";
+    document.getElementById("rpt-vendor").value="";
+    document.getElementById("rpt-title").value="";
+    document.getElementById("rpt-partno").value="";
+    clearCanvas("c-canvas");clearCanvas("r-canvas");
+    document.getElementById("live-summary").style.display="none";
+    document.getElementById("r-live-summary").style.display="none";
+    showModal("Reset","All inputs cleared.");
+  });
+}
+
+// ═══════════════════════════════════════
+//  LENS CANVAS DRAWING
+// ═══════════════════════════════════════
+function drawLensCanvas(id,p){
+  const canvas=document.getElementById(id);
+  const CW=canvas.offsetWidth||320;const CH=parseInt(canvas.getAttribute("height"))||220;
+  canvas.width=CW;canvas.height=CH;
+  const ctx=canvas.getContext("2d");ctx.clearRect(0,0,CW,CH);
+  const{OD,CT,CA1,CA2,s1,s2,g1,g2}=p;
+  if(OD<=0||CT<=0)return;
+  const roc1=parseFloat(document.getElementById("s1ri").value)||0;
+  const roc2=parseFloat(document.getElementById("s2ri").value)||0;
+  const hOD=OD/2,hCA1=CA1/2,hCA2=CA2/2;
+  function getSag(roc,hCA,gMax,absY){
+    const aY=Math.min(absY,hCA);if(gMax<=0)return 0;
+    if(roc>0&&roc>=aY)return roc-Math.sqrt(Math.max(0,roc*roc-aY*aY));
+    return gMax*(aY/hCA)**2;
+  }
+  function xS1(y){const sg=getSag(roc1,hCA1,g1,Math.abs(y));if(s1==="convex")return -CT/2-g1+sg;if(s1==="concave")return -CT/2-sg;return -CT/2;}
+  function xS2(y){const sg=getSag(roc2,hCA2,g2,Math.abs(y));if(s2==="convex")return +CT/2+g2-sg;if(s2==="concave")return +CT/2+sg;return +CT/2;}
+  const xs1v=xS1(0),xs1e=xS1(hCA1),xs2v=xS2(0),xs2e=xS2(hCA2);
+  const xMin=Math.min(xs1v,xs1e,xs2v,xs2e)-0.5,xMax=Math.max(xs1v,xs1e,xs2v,xs2e)+0.5;
+  const padX=52,padY=32;
+  const s=Math.min((CW-padX*2)/(xMax-xMin),(CH-padY*2)/OD);
+  if(s<=0)return;
+  const ox=CW/2-((xMin+xMax)/2)*s,cy=CH/2;
+  const px=xmm=>ox+xmm*s,py=ymm=>cy-ymm*s;
+  const N=200;const ys=[];for(let i=0;i<=N;i++)ys.push(hOD-OD*i/N);
+  const LP=ys.map(y=>[px(xS1(y)),py(y)]),RP=ys.map(y=>[px(xS2(y)),py(y)]);
+  const cs=getComputedStyle(document.documentElement);
+  const lf1=cs.getPropertyValue('--lens-fill1').trim()||'rgba(6,34,90,0.65)';
+  const lf2=cs.getPropertyValue('--lens-fill2').trim()||'rgba(14,60,140,0.48)';
+  const cA=cs.getPropertyValue('--accent').trim()||'#22d3ee';
+  const cA2=cs.getPropertyValue('--accent2').trim()||'#c084fc';
+  const cAmb=cs.getPropertyValue('--amber').trim()||'#fbbf24';
+  const cRed=cs.getPropertyValue('--red').trim()||'#f87171';
+  ctx.beginPath();LP.forEach((pt,i)=>i?ctx.lineTo(...pt):ctx.moveTo(...pt));
+  [...RP].reverse().forEach(pt=>ctx.lineTo(...pt));ctx.closePath();
+  const grd=ctx.createLinearGradient(px(xs1v),0,px(xs2v),0);
+  grd.addColorStop(0,lf1);grd.addColorStop(0.5,lf2);grd.addColorStop(1,lf1);
+  ctx.fillStyle=grd;ctx.fill();
+  ctx.save();ctx.beginPath();LP.forEach((pt,i)=>i?ctx.lineTo(...pt):ctx.moveTo(...pt));
+  [...RP].reverse().forEach(pt=>ctx.lineTo(...pt));ctx.closePath();ctx.clip();
+  const shim=ctx.createLinearGradient(0,py(hOD),0,py(-hOD));
+  shim.addColorStop(0,"rgba(180,230,255,0.24)");shim.addColorStop(0.5,"rgba(180,230,255,0.04)");shim.addColorStop(1,"rgba(180,230,255,0.24)");
+  ctx.fillStyle=shim;ctx.fill();ctx.restore();
+  ctx.lineJoin="round";ctx.lineCap="round";
+  ctx.beginPath();LP.forEach((pt,i)=>i?ctx.lineTo(...pt):ctx.moveTo(...pt));ctx.strokeStyle=cA;ctx.lineWidth=2.2;ctx.stroke();
+  ctx.beginPath();RP.forEach((pt,i)=>i?ctx.lineTo(...pt):ctx.moveTo(...pt));ctx.strokeStyle=cA;ctx.lineWidth=2.2;ctx.stroke();
+  ctx.beginPath();ctx.moveTo(...LP[0]);ctx.lineTo(...RP[0]);ctx.strokeStyle=cA;ctx.lineWidth=1.8;ctx.stroke();
+  ctx.beginPath();ctx.moveTo(...LP[N]);ctx.lineTo(...RP[N]);ctx.strokeStyle=cA;ctx.lineWidth=1.8;ctx.stroke();
+  const drawCAline=(hCA,color)=>{
+    if(hCA>=hOD-0.3)return;
+    const yt=py(hCA),yb=py(-hCA),xl=px(xS1(hCA))-8,xr=px(xS2(hCA))+8;
+    ctx.save();ctx.setLineDash([5,5]);ctx.strokeStyle=color;ctx.lineWidth=1.3;
+    [yt,yb].forEach(yy=>{ctx.beginPath();ctx.moveTo(xl,yy);ctx.lineTo(xr,yy);ctx.stroke();});ctx.restore();
+  };
+  drawCAline(hCA1,cA2+"cc");if(Math.abs(hCA2-hCA1)>0.4)drawCAline(hCA2,cAmb+"bb");
+  ctx.save();ctx.setLineDash([7,6]);ctx.strokeStyle=cRed;ctx.lineWidth=1.5;ctx.globalAlpha=0.85;
+  ctx.beginPath();ctx.moveTo(px(xs1v)-12,cy);ctx.lineTo(px(xs2v)+12,cy);ctx.stroke();ctx.globalAlpha=1;ctx.restore();
+  ctx.strokeStyle=cAmb;ctx.lineWidth=2.0;
+  [py(hOD),py(-hOD)].forEach(yy=>{ctx.beginPath();ctx.moveTo(CW/2-13,yy);ctx.lineTo(CW/2+13,yy);ctx.stroke();});
+  const arrowX=Math.min(px(xs1v),px(xs1e))-18,topY=py(hOD),botY=py(-hOD);
+  ctx.strokeStyle=cAmb;ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(arrowX,topY);ctx.lineTo(arrowX,botY);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(arrowX-4,topY+7);ctx.lineTo(arrowX,topY);ctx.lineTo(arrowX+4,topY+7);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(arrowX-4,botY-7);ctx.lineTo(arrowX,botY);ctx.lineTo(arrowX+4,botY-7);ctx.stroke();
+  ctx.setLineDash([3,3]);
+  ctx.beginPath();ctx.moveTo(arrowX+6,topY);ctx.lineTo(px(xs1e)+2,topY);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(arrowX+6,botY);ctx.lineTo(px(xs1e)+2,botY);ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.save();ctx.font="bold 9px 'Nunito',sans-serif";ctx.fillStyle=cAmb;
+  ctx.translate(arrowX-9,(topY+botY)/2);ctx.rotate(-Math.PI/2);ctx.textAlign="center";ctx.fillText("⌀OD="+OD+" mm",0,0);ctx.restore();
+  const ctX1=px(xS1(0)),ctX2=px(xS2(0)),ctArrY=cy+18;
+  ctx.strokeStyle=cA;ctx.lineWidth=1.4;ctx.setLineDash([]);ctx.lineCap="round";
+  ctx.beginPath();ctx.moveTo(ctX1,cy-4);ctx.lineTo(ctX1,ctArrY+4);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(ctX2,cy-4);ctx.lineTo(ctX2,ctArrY+4);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(ctX1,ctArrY);ctx.lineTo(ctX2,ctArrY);ctx.stroke();
+  const ah=5;
+  ctx.beginPath();ctx.moveTo(ctX1+ah,ctArrY-3);ctx.lineTo(ctX1,ctArrY);ctx.lineTo(ctX1+ah,ctArrY+3);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(ctX2-ah,ctArrY-3);ctx.lineTo(ctX2,ctArrY);ctx.lineTo(ctX2-ah,ctArrY+3);ctx.stroke();
+  ctx.font="bold 9px 'Nunito',sans-serif";ctx.textAlign="center";ctx.fillStyle=cA;
+  ctx.fillText("CT = "+CT.toFixed(2)+" mm",(ctX1+ctX2)/2,ctArrY+14);ctx.textAlign="left";
+  ctx.font="bold 10px 'Nunito',sans-serif";
+  ctx.fillStyle=cA;ctx.fillText("S1",LP[N>>1][0]-24,cy+4);ctx.fillText("S2",RP[N>>1][0]+5,cy+4);
+}
+
+function liveDrawLens(){
+  const od=parseFloat(document.getElementById("c-od").value);
+  const ct=getCTVal();
+  const summary=document.getElementById("live-summary");
+  if(!(od>0)||!(ct>0)){if(summary)summary.style.display="none";return;}
+  try{
+    const s1=document.getElementById("s1t").value.toLowerCase();
+    const s2=document.getElementById("s2t").value.toLowerCase();
+    const ca1=parseFloat(document.getElementById("c-ca1").value)||od;
+    const ca2=parseFloat(document.getElementById("c-ca2").value)||od;
+    if(ca1>od*1.001||ca2>od*1.001)return;
+    const g1=calcSag(s1,document.getElementById("s1ri").value,ca1);
+    const g2=calcSag(s2,document.getElementById("s2ri").value,ca2);
+    drawLensCanvas("c-canvas",{OD:od,CT:ct,CA1:ca1,CA2:ca2,s1,s2,g1,g2});
+    const matSel=document.getElementById("c-mat").value;
+    let dens=matSel==="Custom Density"?parseFloat(document.getElementById("c-cd").value)||0:getDens(matSel)||0;
+    if(dens>0&&summary){
+      const{Vrb,Vt}=lensVol(od,ca1,ca2,g1,g2,s1,s2,ct);
+      const lWt=(Vt/1000)*dens,bWt=(Vrb/1000)*dens;
+      document.getElementById("lw-lens-wt").textContent=lWt.toFixed(3)+" g";
+      document.getElementById("lw-blank-wt").textContent=bWt.toFixed(3)+" g";
+      summary.style.display="block";
+    }else if(summary)summary.style.display="none";
+  }catch(e){if(summary)summary.style.display="none";}
+}
+
+function liveDrawRect(){
+  const L=parseFloat(document.getElementById("r-L").value);
+  const W=parseFloat(document.getElementById("r-W").value);
+  const H=parseFloat(document.getElementById("r-H").value);
+  const summary=document.getElementById("r-live-summary");
+  if(L>0&&H>0)drawRectCanvas("r-canvas",{L,H});
+  if(!(L>0)||!(W>0)||!(H>0)){if(summary)summary.style.display="none";return;}
+  const matSel=document.getElementById("r-mat").value;
+  const dens=matSel==="Custom Density"?parseFloat(document.getElementById("r-cd").value)||0:getDens(matSel)||0;
+  if(dens>0&&summary){
+    const vol=L*W*H/1000,wt=vol*dens;
+    document.getElementById("r-lw-wt").textContent=wt.toFixed(3)+" g";
+    document.getElementById("r-lw-vol").textContent=vol.toFixed(4)+" cm³";
+    summary.style.display="block";
+  }else if(summary)summary.style.display="none";
+}
+
+function clearCanvas(id){const c=document.getElementById(id);c.width=c.offsetWidth||320;c.getContext("2d").clearRect(0,0,c.width,c.height);}
+function drawRectCanvas(id,{L,H}){
+  const canvas=document.getElementById(id);
+  const W2=canvas.offsetWidth||320,H2=parseInt(canvas.getAttribute("height"))||130;
+  canvas.width=W2;canvas.height=H2;
+  const ctx=canvas.getContext("2d");ctx.clearRect(0,0,W2,H2);
+  if(L<=0||H<=0)return;
+  const pad=20,sc=Math.min((W2-pad*2)/L,(H2-pad*2)/H);
+  const dw=L*sc,dh=H*sc,x0=(W2-dw)/2,y0=(H2-dh)/2;
+  ctx.shadowColor="rgba(0,0,0,0.4)";ctx.shadowBlur=10;ctx.shadowOffsetX=4;ctx.shadowOffsetY=4;
+  ctx.fillStyle="rgba(4,40,86,0.45)";ctx.beginPath();ctx.roundRect(x0,y0,dw,dh,8);ctx.fill();ctx.shadowColor="transparent";
+  ctx.fillStyle="rgba(40,98,146,0.18)";ctx.beginPath();ctx.roundRect(x0,y0+dh*.54,dw,dh*.46,8);ctx.fill();
+  ctx.strokeStyle="#22d3ee";ctx.lineWidth=2.2;ctx.beginPath();ctx.roundRect(x0,y0,dw,dh,8);ctx.stroke();
+  const my=y0+dh/2;
+  ctx.save();ctx.setLineDash([8,8]);ctx.strokeStyle="rgba(248,113,113,0.85)";ctx.lineWidth=1.4;
+  ctx.beginPath();ctx.moveTo(x0,my);ctx.lineTo(x0+dw,my);ctx.stroke();ctx.restore();
+  ctx.strokeStyle="#fbbf24";ctx.lineWidth=1.8;
+  [x0,x0+dw].forEach(xi=>{ctx.beginPath();ctx.moveTo(xi,my-8);ctx.lineTo(xi,my+8);ctx.stroke();});
+}
+
+// ═══════════════════════════════════════
+//  ABOUT
+// ═══════════════════════════════════════
+function showAbout(){
+  showModal("About OptiCost LMRCE",
+`OptiCost — LRMCE (APP)
+Version-2.0
+
+Developed by:
+  Priya Gavshinde
+  Sr. Optical Engineer
+  Optics & Allied Engg. Pvt. Ltd.
+
+Features:
+• Circular & Rectangular aperture modes
+• Live cross-section preview
+• Live Finished lens weight and Blank weight estimation
+• Editable material library (auto-saves)
+• Detailed .csv, .png, .doc export
+
+Contact:
+  www.opticsindia.com
+  +91-9886654729
+  info@opticsindia.com
+
+Address:
+Optics & Allied Engg. Pvt. Ltd.
+#9Q, Bommasandra Jigani Link Rd, 1st Phase,
+Bommasandra Industrial Area,
+Bengaluru, Karnataka, India - 560099
+
+© 2025 Optics & Allied Engg. Pvt. Ltd.
+All rights reserved.`);
+}
+
+// ═══════════════════════════════════════
+//  MODAL
+// ═══════════════════════════════════════
+let _modalOkCb=null;
+function showModal(title,msg,okCb){
+  _modalOkCb=okCb||null;window._cYcb=null;
+  document.getElementById("modal-title").textContent=title;
+  document.getElementById("modal-msg").textContent=msg;
+  document.getElementById("modal-btns").innerHTML='<button class="mbtn-ok" onclick="_closeModal()">OK</button>';
+  document.getElementById("modal-overlay").style.display="flex";
+}
+function showConfirm(title,msg,yes){
+  _modalOkCb=null;window._cYcb=yes||null;
+  document.getElementById("modal-title").textContent=title;
+  document.getElementById("modal-msg").textContent=msg;
+  document.getElementById("modal-btns").innerHTML='<button class="mbtn-ok" onclick="window._cY()">Yes</button><button class="mbtn-cancel" onclick="_closeModal()">No</button>';
+  document.getElementById("modal-overlay").style.display="flex";
+}
+window._cY=function(){const cb=window._cYcb;window._cYcb=null;document.getElementById("modal-overlay").style.display="none";if(cb)cb();};
+function closeModal(e){if(e&&e.target&&e.target.id!=='modal-overlay')return;_closeModal();}
+function _closeModal(){document.getElementById("modal-overlay").style.display="none";const cb=_modalOkCb;_modalOkCb=null;if(cb)cb();}
+function v(id){return(document.getElementById(id)||{value:""}).value;}
+
+// ═══════════════════════════════════════
+//  THEME
+// ═══════════════════════════════════════
+const THEMES=['dark','light','white','warm','green','steel','purple','red'];
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme',t==='dark'?'':t);
+  THEMES.forEach(x=>{const el=document.getElementById('sw-'+x);if(el)el.classList.toggle('active',x===t);});
+  try{localStorage.setItem('opticost_theme',t);}catch(e){}
+  liveDrawLens();
+}
+function toggleThemePanel(){document.getElementById('theme-panel').classList.toggle('open');}
+
+// ═══════════════════════════════════════
+//  INIT — FIXED lifecycle events
+// ═══════════════════════════════════════
+window.addEventListener('DOMContentLoaded',()=>{
+  // Load materials first
+  loadMaterials();
+  _seedDefaultUser();
+  populateMats();
+  surfChanged();
+  syncCA();
+
+  // Restore theme
+  try{
+    const t=localStorage.getItem('opticost_theme')||'dark';
+    setTheme(t);
+  }catch(e){setTheme('dark');}
+
+  // Set today's date
+  const de=document.getElementById('rpt-date');
+  if(de) de.value=new Date().toLocaleDateString();
+
+  // ── Restore session if page was refreshed ──────────────────
+  let _restoredSession=false;
+  try{
+    const savedUser=sessionStorage.getItem("opticost_session");
+    if(savedUser){
+      // Verify user still exists and is not expired
+      _getAllUsers().then(users=>{
+        const rec=users[savedUser.toLowerCase()];
+        if(rec && new Date()<=new Date(rec.expires)){
+          currentUser=savedUser;
+          document.getElementById("logged-in-label").textContent="👤 "+savedUser;
+          showScreen("screen-main");
+        }else{
+          sessionStorage.removeItem("opticost_session");
+          showScreen("screen-login");
+        }
+      }).catch(()=>showScreen("screen-login"));
+      _restoredSession=true;
+    }
+  }catch(e){}
+
+  if(!_restoredSession) showScreen("screen-login");
+
+  // ── App lifecycle — save materials on close/background ──────
+
+  // visibilitychange: fired when app goes to background on Android
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='hidden'){
+      // Only read table if it's currently rendered (user was on materials tab)
+      const tbody=document.getElementById("mat-tbody");
+      if(tbody && tbody.children.length>0){
+        readMatTableIntoMemory();
+      }
+      // Always persist current MATERIALS (don't overwrite with empty)
+      if(MATERIALS.length>0){
+        const json=JSON.stringify(MATERIALS);
+        if(_hasAndroidBridge()){
+          try{ Android.saveFile_internal("materials.json",json); }catch(e){}
+        }
+        try{ localStorage.setItem("opticost_materials",json); }catch(e){}
+      }
+    }
+  });
+
+  // pagehide: fired just before page unloads
+  window.addEventListener('pagehide',()=>{
+    if(MATERIALS.length>0){
+      const json=JSON.stringify(MATERIALS);
+      if(_hasAndroidBridge()){
+        try{ Android.saveFile_internal("materials.json",json); }catch(e){}
+      }
+      try{ localStorage.setItem("opticost_materials",json); }catch(e){}
+    }
+  });
+
+  // beforeunload: browser fallback
+  window.addEventListener('beforeunload',()=>{
+    if(MATERIALS.length>0){
+      const json=JSON.stringify(MATERIALS);
+      if(_hasAndroidBridge()){
+        try{ Android.saveFile_internal("materials.json",json); }catch(e){}
+      }
+      try{ localStora
