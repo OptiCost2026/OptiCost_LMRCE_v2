@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no"/>
     <meta name="mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
@@ -71,7 +71,7 @@
         input[type=number]::-webkit-inner-spin-button,
         input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
         input[type=number]{-moz-appearance:textfield}
-        html,body{height:100%;max-height:100%;overflow:hidden;}
+        html,body{height:100%;max-height:100%;overflow:hidden;overscroll-behavior:none;overscroll-behavior-y:none;}
         body{
           background:var(--bg);color:var(--text);
           font-family:'Nunito',sans-serif;display:flex;flex-direction:column;
@@ -96,7 +96,7 @@
         .hbtn{background:var(--surf2);border:1px solid var(--border);color:var(--accent);font-family:'Nunito',sans-serif;font-size:.72rem;font-weight:700;padding:5px 10px;border-radius:6px;cursor:pointer;transition:background .18s}
         .hbtn:hover{background:var(--border)}
         .hbtn.red{color:var(--red);border-color:var(--red)}
-        .auth-body{flex:1;min-height:0;height:0;overflow-y:auto;overflow-x:hidden;display:flex;align-items:flex-start;justify-content:center;padding:14px 14px 14px;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y;}
+        .auth-body{flex:1;min-height:0;height:0;overflow-y:auto;overflow-x:hidden;display:flex;align-items:flex-start;justify-content:center;padding:14px 14px 14px;-webkit-overflow-scrolling:touch;overscroll-behavior:none;touch-action:pan-y;}
         .auth-card{background:var(--surface);border-radius:14px;padding:20px 18px;width:100%;max-width:360px;border:1px solid var(--border);margin:0 auto;}
         .auth-card h2{font-family:'Rajdhani',sans-serif;color:var(--accent2);font-size:1rem;letter-spacing:1.5px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);}
         .field-lbl{font-size:.8rem;color:var(--text);margin-bottom:4px;margin-top:9px;font-weight:600}
@@ -118,7 +118,7 @@
         .tab{background:none;border:none;color:var(--text);font-family:'Nunito',sans-serif;font-size:.82rem;font-weight:600;padding:6px 13px;border-radius:8px;cursor:pointer;transition:all .18s;white-space:nowrap;}
         .tab:hover{background:var(--border)}
         .tab.active{background:var(--accent);color:var(--tag-txt)}
-        main{flex:1;min-height:0;height:0;overflow-y:auto;overflow-x:hidden;padding:11px 11px 14px;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y;}
+        main{flex:1;min-height:0;height:0;overflow-y:auto;overflow-x:hidden;padding:11px 11px 14px;-webkit-overflow-scrolling:touch;overscroll-behavior:none;touch-action:pan-y;}
         .panel{display:none}.panel.active{display:block}
         .card{background:var(--surface);border-radius:var(--radius);padding:13px;margin-bottom:10px}
         .sec-hdr{font-family:'Rajdhani',sans-serif;font-size:.82rem;font-weight:700;color:var(--accent2);letter-spacing:1.5px;margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid var(--border);}
@@ -230,6 +230,33 @@
           if(_q[n]){ _q[n].forEach(function(a){ fns[n].apply(null,a); }); delete _q[n]; }
         });
       };
+    })();
+
+    // Kill pull-to-refresh: block touchmove on document when at scroll top
+    // This runs immediately in <head> before any content loads
+    (function(){
+      var _startY=0;
+      document.addEventListener('touchstart',function(e){
+        _startY=e.touches[0].clientY;
+      },{passive:true});
+      document.addEventListener('touchmove',function(e){
+        // Find the actual scrollable parent of the touched element
+        var el=e.target;
+        var scrollable=null;
+        while(el&&el!==document.body){
+          var st=window.getComputedStyle(el);
+          var oy=st.overflowY;
+          if((oy==='auto'||oy==='scroll')&&el.scrollHeight>el.clientHeight){
+            scrollable=el;break;
+          }
+          el=el.parentElement;
+        }
+        var dy=e.touches[0].clientY-_startY;
+        // If no scrollable found, or scrollable is at top and user pulls down → block
+        if(!scrollable||(scrollable.scrollTop<=0&&dy>0)){
+          e.preventDefault();
+        }
+      },{passive:false});
     })();
     </script>
 </head>
