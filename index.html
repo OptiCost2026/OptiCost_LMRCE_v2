@@ -208,6 +208,31 @@
         @media(max-width:414px){.app-header-name{font-size:1.55rem}.main-logo-title{font-size:1.2rem}.tab{font-size:.76rem;padding:5px 10px}main{padding:9px 9px 12px}.card{padding:11px}.actbar button{font-size:.79rem;padding:10px 3px}.res-lbl,.res-val{font-size:.74rem}.auth-btn{font-size:.85rem;padding:11px}.app-footer{font-size:.58rem}}
         @media(max-width:360px){.app-header-name{font-size:1.35rem}.tab{font-size:.70rem;padding:5px 7px}main{padding:8px 8px 10px}.actbar button{font-size:.72rem;padding:9px 2px}.app-footer{font-size:.53rem}}
     </style>
+    <!-- HEAD BOOTSTRAP: proxy stubs so inline onclick= never throws ReferenceError -->
+    <script>
+    (function(){
+      var _q={};
+      function makeStub(name){
+        window[name]=function(){
+          (_q[name]=_q[name]||[]).push(Array.prototype.slice.call(arguments));
+        };
+      }
+      ['showScreen','toggleEye','doLogin','verifyAdmin','doCreateUser',
+       'showManageUsers','deleteUser','doLogout','switchTab','doCalc',
+       'doSave','doReset','surfChanged','syncCA','matChanged','evalCT',
+       'liveDrawLens','liveDrawRect','autoSaveMats','addMatRow',
+       'saveMaterials','resetMaterials','delMat','delResRow',
+       'saveReportImage','shareResultsText','loadLogoFile','clearLogo',
+       'refreshSnapHeaderIfVisible','setTheme','toggleThemePanel',
+       'showAbout','closeModal','_closeModal'].forEach(makeStub);
+      window.__flushStubs=function(fns){
+        Object.keys(fns).forEach(function(n){
+          window[n]=fns[n];
+          if(_q[n]){ _q[n].forEach(function(a){ fns[n].apply(null,a); }); delete _q[n]; }
+        });
+      };
+    })();
+    </script>
 </head>
 <body>
 
@@ -1837,4 +1862,51 @@ window.addEventListener('DOMContentLoaded',()=>{
       if(_hasAndroidBridge()){
         try{ Android.saveFile_internal("materials.json",json); }catch(e){}
       }
-      try{ localStora
+      try{ localStorage.setItem("opticost_materials",json); }catch(e){}
+    }
+  });
+
+});// end DOMContentLoaded
+
+// ═══════════════════════════════════════
+//  FLUSH STUBS — install real functions after all defs are ready
+// ═══════════════════════════════════════
+window.__flushStubs({
+  showScreen:showScreen,
+  toggleEye:toggleEye,
+  doLogin:doLogin,
+  verifyAdmin:verifyAdmin,
+  doCreateUser:doCreateUser,
+  showManageUsers:showManageUsers,
+  deleteUser:deleteUser,
+  doLogout:doLogout,
+  switchTab:switchTab,
+  doCalc:doCalc,
+  doSave:doSave,
+  doReset:doReset,
+  surfChanged:surfChanged,
+  syncCA:syncCA,
+  matChanged:matChanged,
+  evalCT:evalCT,
+  liveDrawLens:liveDrawLens,
+  liveDrawRect:liveDrawRect,
+  autoSaveMats:autoSaveMats,
+  addMatRow:addMatRow,
+  saveMaterials:saveMaterials,
+  resetMaterials:resetMaterials,
+  delMat:delMat,
+  delResRow:delResRow,
+  saveReportImage:saveReportImage,
+  shareResultsText:shareResultsText,
+  loadLogoFile:loadLogoFile,
+  clearLogo:clearLogo,
+  refreshSnapHeaderIfVisible:refreshSnapHeaderIfVisible,
+  setTheme:setTheme,
+  toggleThemePanel:toggleThemePanel,
+  showAbout:showAbout,
+  closeModal:closeModal,
+  _closeModal:_closeModal
+});
+</script>
+</body>
+</html>
