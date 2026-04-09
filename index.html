@@ -234,9 +234,12 @@
                 <button class="eye-btn" onclick="toggleEye('login-pass',this)">SHOW</button>
             </div>
             <button class="auth-btn" onclick="doLogin()">⚡ LOGIN</button>
-            <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);text-align:center">
-                <span style="font-size:.72rem;color:var(--muted)">Administrator access: </span>
-                <button onclick="showScreen('screen-admin')" style="background:none;border:none;color:var(--accent2);font-size:.72rem;font-weight:700;cursor:pointer;text-decoration:underline;font-family:'Nunito',sans-serif;padding:0">Create / Manage Users →</button>
+            <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+                <div style="font-size:.68rem;color:var(--muted);text-align:center;margin-bottom:8px;letter-spacing:.5px;font-weight:600;">ADMINISTRATOR PANEL</div>
+                <button onclick="showScreen('screen-admin')" style="width:100%;padding:10px 14px;background:var(--surf2);border:1.5px solid var(--accent2);border-radius:8px;color:var(--accent2);font-family:'Nunito',sans-serif;font-size:.83rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .18s;" onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background='var(--surf2)'">
+                    <span style="font-size:1rem;">🛡</span> Create / Manage Users
+                    <span style="margin-left:auto;font-size:.75rem;opacity:.7;">→</span>
+                </button>
             </div>
         </div>
     </div>
@@ -841,6 +844,13 @@ function doLogout(){
   });
 }
 
+window.doLogin=doLogin;
+window.verifyAdmin=verifyAdmin;
+window.doCreateUser=doCreateUser;
+window.showManageUsers=showManageUsers;
+window.deleteUser=deleteUser;
+window.doLogout=doLogout;
+
 // ═══════════════════════════════════════
 //  SCREEN & TAB
 // ═══════════════════════════════════════
@@ -848,11 +858,15 @@ function showScreen(id){
   document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
   document.getElementById(id).classList.add("active");
 }
+// Expose on window so inline onclick="" handlers always find these
+// regardless of script load timing or Cloudflare script injection
+window.showScreen=showScreen;
 function toggleEye(id,btn){
   const i=document.getElementById(id);
   i.type=i.type==="password"?"text":"password";
   btn.textContent=i.type==="password"?"SHOW":"HIDE";
 }
+window.toggleEye=toggleEye;
 let currentTab="circular";
 function switchTab(key,btn){
   currentTab=key;
