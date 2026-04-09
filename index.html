@@ -258,6 +258,13 @@
                 <div><input type="password" id="login-pass" placeholder="Enter password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"/></div>
                 <button class="eye-btn" onclick="toggleEye('login-pass',this)">SHOW</button>
             </div>
+            <div class="chk-row" style="margin-top:10px;margin-bottom:2px;">
+                <input type="checkbox" id="remember-me" style="accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;cursor:pointer;"/>
+                <label for="remember-me" style="font-size:.8rem;color:var(--muted);cursor:pointer;user-select:none;">Remember my login</label>
+            </div>
+            <div id="forget-login-row" style="display:none;text-align:right;margin-top:3px;">
+                <button onclick="forgetLogin()" style="background:none;border:none;color:var(--red);font-size:.72rem;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;padding:0;text-decoration:underline;">✕ Forget saved login</button>
+            </div>
             <button class="auth-btn" onclick="doLogin()">⚡ LOGIN</button>
             <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
                 <div style="font-size:.68rem;color:var(--muted);text-align:center;margin-bottom:8px;letter-spacing:.5px;font-weight:600;">ADMINISTRATOR PANEL</div>
@@ -809,10 +816,33 @@ function doLogin(){
     if(pw!==p){showModal("Login Failed","Incorrect password.");return;}
     if(new Date()>new Date(rec.expires)){showModal("Login Failed","Account expired. Contact admin.");return;}
     currentUser=u;
+    // Save or clear remembered login
+    const remember=document.getElementById("remember-me");
+    try{
+      if(remember&&remember.checked){
+        localStorage.setItem("opticost_saved_user",u);
+        localStorage.setItem("opticost_saved_pass",btoa(p));
+      } else {
+        localStorage.removeItem("opticost_saved_user");
+        localStorage.removeItem("opticost_saved_pass");
+      }
+    }catch(e){}
     try{sessionStorage.setItem("opticost_session",u);}catch(e){}
     document.getElementById("logged-in-label").textContent="👤 "+u;
     showScreen("screen-main");
   }).catch(e=>showModal("Error","Storage error:\n"+e.message));
+}
+function forgetLogin(){
+  try{
+    localStorage.removeItem("opticost_saved_user");
+    localStorage.removeItem("opticost_saved_pass");
+  }catch(e){}
+  document.getElementById("login-user").value="";
+  document.getElementById("login-pass").value="";
+  const remEl=document.getElementById("remember-me");
+  if(remEl) remEl.checked=false;
+  const fi=document.getElementById("forget-login-row");
+  if(fi) fi.style.display="none";
 }
 function verifyAdmin(){
   const u=v("admin-user").trim(),p=v("admin-pass").trim();
@@ -875,6 +905,7 @@ window.doCreateUser=doCreateUser;
 window.showManageUsers=showManageUsers;
 window.deleteUser=deleteUser;
 window.doLogout=doLogout;
+window.forgetLogin=forgetLogin;
 
 // ═══════════════════════════════════════
 //  SCREEN & TAB
@@ -1785,6 +1816,22 @@ function toggleThemePanel(){document.getElementById('theme-panel').classList.tog
 window.addEventListener('DOMContentLoaded',()=>{
   // Load materials first
   loadMaterials();
+
+  // ── Auto-fill remembered login ─────────────────────────────
+  try{
+    const su=localStorage.getItem("opticost_saved_user");
+    const sp=localStorage.getItem("opticost_saved_pass");
+    if(su&&sp){
+      const userEl=document.getElementById("login-user");
+      const passEl=document.getElementById("login-pass");
+      const remEl=document.getElementById("remember-me");
+      if(userEl) userEl.value=su;
+      if(passEl) passEl.value=atob(sp);
+      if(remEl)  remEl.checked=true;
+      const fi=document.getElementById("forget-login-row");
+      if(fi) fi.style.display="block";
+    }
+  }catch(e){}
   _seedDefaultUser();
   populateMats();
   surfChanged();
@@ -1905,7 +1952,8 @@ window.__flushStubs({
   toggleThemePanel:toggleThemePanel,
   showAbout:showAbout,
   closeModal:closeModal,
-  _closeModal:_closeModal
+  _closeModal:_closeModal,
+  forgetLogin:forgetLogin
 });
 </script>
 </body>
