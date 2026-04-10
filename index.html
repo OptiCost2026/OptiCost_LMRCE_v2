@@ -1284,65 +1284,149 @@ ${row("Volume",Vtc.toFixed(4)+" cm³")}${row("Weight",wt.toFixed(4)+" g")}${row(
   document.getElementById("batch-count").textContent=recs.length;
 }
 
-// ═══════════════════════════════════════
-//  SAVE ENGINE — WebIntoApp = GitHub Pages HTTPS
-//  Primary path: Web Share API (works on Android via HTTPS)
-//  Fallback: <a download> for desktop browsers
-// ═══════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+//  SAVE ENGINE — Designed for WebIntoApp (GitHub Pages HTTPS)
+//
+//  WebIntoApp WebView blocks: <a download>, Android bridge,
+//  and sometimes Web Share API for binary files.
+//
+//  STRATEGY per file type:
+//  • PNG  → open image in new tab → user taps & holds → Save Image
+//  • CSV  → open as data:text/plain → user sees data → copy/share
+//  • Word → open HTML in new tab → user prints/shares
+//  • All  → also try Web Share API + <a download> as bonus attempts
+// ═══════════════════════════════════════════════════════════════
 
-// Core save function — tries Web Share first, then download link
-function _saveFile(blob, fname, successMsg){
-  // PATH 1: Web Share API — primary path for WebIntoApp (GitHub Pages = HTTPS)
-  // This shows the native Android share sheet: Save to Downloads, WhatsApp, Email, etc.
-  if(navigator.share){
-    try{
-      const file=new File([blob], fname, {type:blob.type});
-      const canShare=navigator.canShare && navigator.canShare({files:[file]});
-      if(canShare){
-        navigator.share({
-          files:[file],
-          title:"OptiCost Report",
-          text:"Lens Raw Material Cost Estimation — "+fname
-        })
-        .then(()=>{ /* share sheet handled it */ })
-        .catch(err=>{
-          if(err.name!=="AbortError") _downloadLink(blob, fname, successMsg);
-        });
-        return;
-      }
-    }catch(e){ console.warn("Share API error:",e); }
-  }
-  // PATH 2: Direct download link (desktop browsers)
-  _downloadLink(blob, fname, successMsg);
-}
-
-function _downloadLink(blob, fname, successMsg){
+function _saveFile(blob, fname, successMsg, hint){
+  // STEP 1: Always try <a download> first — works in some WebIntoApp versions
+  //         and in all desktop browsers
   try{
     const url=URL.createObjectURL(blob);
     const a=document.createElement("a");
     a.href=url; a.download=fname;
-    a.style.cssText="position:fixed;top:-9999px;left:-9999px;";
+    a.style.cssText="position:fixed;top:-9999px;left:-9999px;opacity:0;pointer-events:none;";
     document.body.appendChild(a);
     a.click();
-    setTimeout(()=>{ try{URL.revokeObjectURL(url);}catch{} try{document.body.removeChild(a);}catch{} },3000);
-    showModal("✅ "+successMsg,"File: "+fname+"\n\n📂 Check your Downloads folder.");
+    setTimeout(()=>{ try{URL.revokeObjectURL(url);}catch{} try{document.body.removeChild(a);}catch{} },4000);
+  }catch(e){}
+
+  // STEP 2: Web Share API (shows share sheet on Android — user picks Downloads/Drive/Gmail)
+  if(navigator.share){
+    try{
+      const file=new File([blob], fname, {type:blob.type});
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        navigator.share({files:[file], title:"OptiCost — "+fname, text:fname})
+          .catch(()=>{});
+        return; // Share sheet shown — done
+      }
+    }catch(e){}
+  }
+
+  // STEP 3: Show instructions modal with the file information
+  const userHint=hint||"";
+  showModal(
+    "📁 How to Save",
+    "File: "+fname+"\n\n"+
+    "On Android (WebIntoApp):\n"+
+    "1. Tap ↗ SHARE button below to send via Gmail, WhatsApp, Drive etc.\n"+
+    "2. Or open your browser Downloads (⋮ menu → Downloads)\n\n"+
+    (userHint?userHint+"\n\n":"")+
+    "On PC/Desktop:\n"+
+    "File auto-downloads to your Downloads folder."
+  );
+}
+
+// PNG — open image in new tab (user long-presses → Save Image)
+function _savePNG(blob, fname){
+  // Try share/download first
+  try{
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url; a.download=fname;
+    a.style.cssText="position:fixed;top:-9999px;opacity:0;";
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ try{URL.revokeObjectURL(url);}catch{} try{document.body.removeChild(a);}catch{} },4000);
+  }catch(e){}
+
+  // Web Share API for image
+  if(navigator.share){
+    try{
+      const file=new File([blob], fname, {type:"image/png"});
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        navigator.share({files:[file], title:"OptiCost Report", text:fname})
+          .catch(()=>{});
+        return;
+      }
+    }catch(e){}
+  }
+
+  // Open image in new window — user can long-press → Save Image on Android
+  try{
+    const reader=new FileReader();
+    reader.onload=function(){
+      const w=window.open("","_blank");
+      if(w){
+        w.document.write("<html><head><title>"+fname+"</title><meta name=\"viewport\" content=\"width=device-width\"/></head><body style=\"margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh\">");
+        w.document.write("<div style=\"text-align:center\"><p style=\"color:#fff;font-family:sans-serif;font-size:14px;padding:10px\">📱 Long-press the image → <b>Save Image</b><br>or tap the ⋮ menu → <b>Download</b></p>");
+        w.document.write("<img src=\""+reader.result+"\" style=\"max-width:100%;height:auto\"/></div>");
+        w.document.write("</body></html>");
+        w.document.close();
+      } else {
+        showModal("📁 Save Image","Tap ↗ Share button and choose Save to Downloads or send via email/drive.");
+      }
+    };
+    reader.readAsDataURL(blob);
   }catch(e){
-    showModal("Save Error","Could not save.\n"+e.message);
+    showModal("📁 Save Image","Use the ↗ Share button to save or send the image.");
   }
 }
 
-// CSV save
+// CSV — open as plain text in new tab or share
 function _saveCSVFile(csvText, fname){
   const blob=new Blob(["\uFEFF"+csvText],{type:"text/csv;charset=utf-8;"});
-  _saveFile(blob, fname, "CSV Saved");
+
+  // Try <a download>
+  try{
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a"); a.href=url; a.download=fname;
+    a.style.cssText="position:fixed;top:-9999px;opacity:0;";
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ try{URL.revokeObjectURL(url);}catch{} try{document.body.removeChild(a);}catch{} },4000);
+  }catch(e){}
+
+  // Web Share
+  if(navigator.share){
+    try{
+      const file=new File([blob], fname, {type:"text/csv"});
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        navigator.share({files:[file], title:"OptiCost CSV", text:fname})
+          .catch(()=>{});
+        return;
+      }
+    }catch(e){}
+  }
+
+  // Open CSV data in new tab as plain text
+  try{
+    const w=window.open("","_blank");
+    if(w){
+      w.document.write("<html><head><title>"+fname+"</title><meta name=\"viewport\" content=\"width=device-width\"/></head><body style=\"font-family:monospace;font-size:12px;padding:10px;white-space:pre-wrap;word-break:break-all\">");
+      w.document.write("<p style=\"font-family:sans-serif;font-size:14px;background:#e0f2fe;padding:10px;border-radius:6px;margin-bottom:10px\">📋 Select all text → Copy → paste into Excel or Google Sheets<br>Or use browser menu → Share → Save</p>");
+      w.document.write(csvText.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"));
+      w.document.write("</body></html>");
+      w.document.close();
+    } else {
+      showModal("📋 CSV Data","Copy this data and paste into Excel:\n\n"+csvText.substring(0,500)+(csvText.length>500?"...":""));
+    }
+  }catch(e){
+    showModal("CSV Ready",""+recs.length+" records ready. Use ↗ Share to export.");
+  }
 }
 
-// Binary save (PNG, Word, etc.)
+// Binary save (Word doc, etc.)
 function _masterSaveBinary(blob, fname, mimeType, successMsg){
   _saveFile(blob, fname, successMsg);
 }
-
-// Browser fallback alias
 function _browserSaveFallback(blob, fname, mimeType, successMsg){
   _saveFile(blob, fname, successMsg);
 }
@@ -1476,7 +1560,7 @@ function saveReportImage(fmt){
           _closeModal();
           try{cv.width=1;cv.height=1;}catch{}
           if(!blob){showModal("Error","Could not generate image.");return;}
-          _saveFile(blob, fname, "PNG Saved");
+          _savePNG(blob, fname);
         },"image/png",0.92);
       });
     }catch(e){_closeModal();showModal("Error","Image build failed: "+e.message);}
@@ -1497,7 +1581,7 @@ function shareResultsText(){
           _closeModal();
           try{cv.width=1;cv.height=1;}catch{}
           if(!blob){showModal("Error","Could not generate image.");return;}
-          _saveFile(blob, fname, "Report Shared");
+          _savePNG(blob, fname);
         },"image/png",0.92);
       });
     }catch(e){_closeModal();showModal("Error","Share failed: "+e.message);}
@@ -1531,10 +1615,31 @@ function saveReportDoc(){
 <table>${tableRows}</table>
 <div class="footer">Generated by OptiCost LRMCE v2.0 | ${mfr} | www.opticsindia.com</div></body></html>`;
   const fname="OptiCost_Report_"+new Date().toISOString().slice(0,10)+".doc";
-  // Use text/html MIME — most share targets (Gmail, Drive, WhatsApp) accept it
-  // Recipient opens .doc in Word/Google Docs which renders the HTML correctly
-  const blob=new Blob(["\ufeff"+docHtml],{type:"text/html;charset=utf-8"});
-  _saveFile(blob, fname, "Word Doc Saved");
+  // Open HTML report in new tab — user can Print → Save as PDF
+  // or share via browser menu
+  try{
+    const w=window.open("","_blank");
+    if(w){
+      w.document.write(docHtml);
+      w.document.close();
+      // Also try download
+      try{
+        const blob=new Blob(["\ufeff"+docHtml],{type:"text/html;charset=utf-8"});
+        const url=URL.createObjectURL(blob);
+        const a=w.document.createElement("a"); a.href=url; a.download=fname;
+        w.document.body.appendChild(a); a.click();
+        setTimeout(()=>URL.revokeObjectURL(url),3000);
+      }catch(e){}
+      showModal("✅ Report Opened","Report opened in new tab!\n\nIn that tab:\n• Tap ⋮ menu → Share → Save as PDF\n• Or tap Print → Save as PDF\n• Or tap Share → send via Gmail/Drive");
+    } else {
+      // Fallback: download blob
+      const blob=new Blob(["\ufeff"+docHtml],{type:"text/html;charset=utf-8"});
+      _saveFile(blob, fname, "Report Ready");
+    }
+  }catch(e){
+    const blob=new Blob(["\ufeff"+docHtml],{type:"text/html;charset=utf-8"});
+    _saveFile(blob, fname, "Report Ready");
+  }
 }
 
 // ═══════════════════════════════════════
