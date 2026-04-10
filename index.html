@@ -71,12 +71,20 @@
         input[type=number]::-webkit-inner-spin-button,
         input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
         input[type=number]{-moz-appearance:textfield}
-        html,body{height:100%;max-height:100%;overflow:hidden;overscroll-behavior:none;overscroll-behavior-y:none;}
+        html{
+          height:100%; height:100dvh;
+          overflow:hidden;
+          overscroll-behavior:none;
+        }
         body{
+          height:100%; height:100dvh;
+          overflow:hidden;
+          overscroll-behavior:none;
           background:var(--bg);color:var(--text);
-          font-family:'Nunito',sans-serif;display:flex;flex-direction:column;
-          padding-top:max(var(--status-bar),env(safe-area-inset-top,0px));
-          padding-bottom:max(var(--nav-bar),env(safe-area-inset-bottom,0px));
+          font-family:'Nunito',sans-serif;
+          display:flex;flex-direction:column;
+          padding-top:env(safe-area-inset-top,0px);
+          padding-bottom:env(safe-area-inset-bottom,0px);
         }
         .screen{display:none;flex-direction:column;flex:1;min-height:0;height:0;overflow:hidden;}
         .screen.active{display:flex}
@@ -232,31 +240,52 @@
       };
     })();
 
-    // Kill pull-to-refresh: block touchmove on document when at scroll top
-    // This runs immediately in <head> before any content loads
+    // Disable pull-to-refresh without blocking scroll.
+    // IMPORTANT: We only call preventDefault when the touch STARTS at the
+    // very top (scrollTop===0) AND the first move is downward. After that
+    // we let the browser handle everything natively — no per-frame work.
     (function(){
+      // Pull-to-refresh killer — zero work during scroll frames.
+      // Walk DOM ONCE on touchstart, cache the scroll container ref.
+      // touchmove only reads scrollTop (cheap) and direction — no layout.
       var _startY=0;
+      var _scrollEl=null;   // cached scroll container for this gesture
+      var _blocked=false;   // gesture fully blocked (no scrollable + pull down)
+
       document.addEventListener('touchstart',function(e){
         _startY=e.touches[0].clientY;
-      },{passive:true});
-      document.addEventListener('touchmove',function(e){
-        // Find the actual scrollable parent of the touched element
+        _blocked=false;
+        _scrollEl=null;
+        // Walk DOM once — find and cache scroll container
         var el=e.target;
-        var scrollable=null;
-        while(el&&el!==document.body){
-          var st=window.getComputedStyle(el);
-          var oy=st.overflowY;
-          if((oy==='auto'||oy==='scroll')&&el.scrollHeight>el.clientHeight){
-            scrollable=el;break;
+        while(el && el!==document.body && el!==document.documentElement){
+          if(el.scrollHeight>el.clientHeight+1){
+            _scrollEl=el;
+            if(el.scrollTop<=0) _blocked=true;
+            return;
           }
           el=el.parentElement;
         }
+        _blocked=true;
+      },{passive:true});
+
+      document.addEventListener('touchmove',function(e){
+        if(_blocked){ e.preventDefault(); return; }
         var dy=e.touches[0].clientY-_startY;
-        // If no scrollable found, or scrollable is at top and user pulls down → block
-        if(!scrollable||(scrollable.scrollTop<=0&&dy>0)){
+        // Only block pull-down when container is at the very top
+        if(dy>0 && _scrollEl && _scrollEl.scrollTop<=0){
           e.preventDefault();
+          _blocked=true;
         }
+        // non-scrollable areas already handled by _blocked flag set in touchstart
       },{passive:false});
+
+      document.addEventListener('touchend',function(){
+        _blocked=false; _scrollEl=null;
+      },{passive:true});
+      document.addEventListener('touchcancel',function(){
+        _blocked=false; _scrollEl=null;
+      },{passive:true});
     })();
     </script>
 </head>
@@ -918,9 +947,15 @@ function deleteUser(username){
 function doLogout(){
   showConfirm("Logout","Are you sure you want to log out?",()=>{
     currentUser=null;
+    recs=[];
+    try{clearTimeout(_matSaveTimer);}catch{}
     try{sessionStorage.removeItem("opticost_session");}catch(e){}
     document.getElementById("login-user").value="";
     document.getElementById("login-pass").value="";
+    const rt=document.getElementById("result-text");
+    if(rt) rt.innerHTML='<div class="res-empty">Run a calculation to see results here.</div>';
+    const bc=document.getElementById("batch-count");
+    if(bc) bc.textContent="0";
     showScreen("screen-login");
   });
 }
@@ -1308,68 +1343,93 @@ window._onAndroidSaveSuccess=function(filename){
 //  SAVE CSV — FIXED
 // ═══════════════════════════════════════
 function _saveCSVFile(csvText,fname){
-  // PATH 1: Android native saveCSV (raw text — Java handles UTF-8+BOM)
+  // PATH 1: Android bridge — try saveCSV first (Java writes UTF-8 with BOM)
   if(_hasAndroidBridge()){
     try{
       Android.saveCSV(csvText,fname);
-      // Success notification comes from Java via _onAndroidSaveSuccess
-      return;
-    }catch(e){ console.warn("Android.saveCSV failed, falling back:",e); }
+      return; // Java calls _onAndroidSaveSuccess on completion
+    }catch(e){
+      console.warn("Android.saveCSV failed, trying saveFile:",e);
+      // Fallback: encode as base64 and use saveFile
+      try{
+        const blob=new Blob(["\uFEFF"+csvText],{type:"text/csv;charset=utf-8;"});
+        const reader=new FileReader();
+        reader.onload=function(){
+          try{ Android.saveFile(reader.result,fname,"text/csv"); }
+          catch(e2){ _browserSaveFallback(blob,fname,"text/csv","CSV Saved"); }
+        };
+        reader.readAsDataURL(blob);
+        return;
+      }catch(e2){}
+    }
   }
-  // PATH 2: browser blob fallback
+  // PATH 2: Browser fallback
   const blob=new Blob(["\uFEFF"+csvText],{type:"text/csv;charset=utf-8;"});
-  _masterSaveBinary(blob,fname,"text/csv","CSV Saved");
+  _browserSaveFallback(blob,fname,"text/csv","CSV Saved");
 }
 
 // ═══════════════════════════════════════
 //  SAVE BINARY FILE — FIXED
 // ═══════════════════════════════════════
 function _masterSaveBinary(blob,fname,mimeType,successMsg){
-  const reader=new FileReader();
-  reader.onload=function(){
-    const dataUrl=reader.result;
-    // PATH 1: Android Native Bridge
-    if(_hasAndroidBridge()){
+  // PATH 1: Android Native Bridge — the ONLY reliable path in a WebView APK.
+  // Android.saveFile receives a base64 data URL and writes to Downloads folder.
+  if(_hasAndroidBridge()){
+    const reader=new FileReader();
+    reader.onload=function(){
       try{
-        Android.saveFile(dataUrl,fname,mimeType);
-        return;
-      }catch(e){ console.warn("Android.saveFile failed:",e); }
-    }
-    // PATH 2: Web Share API with file (works on Android Chrome / iOS Safari)
-    if(navigator.share && navigator.canShare){
-      try{
-        const file=new File([blob],fname,{type:mimeType});
-        if(navigator.canShare({files:[file]})){
-          navigator.share({files:[file],title:"OptiCost – "+fname,text:"Lens cost estimate from OptiCost LRMCE"})
-            .then(()=>showModal("✅ Shared","File shared successfully."))
-            .catch(err=>{if(err.name!=="AbortError") _dataUriSave(dataUrl,fname,successMsg);});
-          return;
-        }
-      }catch(e){ console.warn("Web Share failed:",e); }
-    }
-    // PATH 3: Data URI anchor fallback
-    _dataUriSave(dataUrl,fname,successMsg);
-  };
-  reader.onerror=()=>showModal("Error","Could not prepare file for saving.");
-  reader.readAsDataURL(blob);
+        Android.saveFile(reader.result,fname,mimeType);
+        // Android calls window._onAndroidSaveSuccess(fname) on success
+      }catch(e){
+        console.warn("Android.saveFile failed:",e);
+        _browserSaveFallback(blob,fname,mimeType,successMsg);
+      }
+    };
+    reader.onerror=function(){
+      _browserSaveFallback(blob,fname,mimeType,successMsg);
+    };
+    reader.readAsDataURL(blob);
+    return;
+  }
+  // PATH 2: Browser fallback (not in APK)
+  _browserSaveFallback(blob,fname,mimeType,successMsg);
 }
 
-function _dataUriSave(dataUrl,fname,successMsg){
+function _browserSaveFallback(blob,fname,mimeType,successMsg){
+  // Web Share API — works on Android Chrome with HTTPS
+  if(navigator.share && navigator.canShare){
+    try{
+      const file=new File([blob],fname,{type:mimeType});
+      if(navigator.canShare({files:[file]})){
+        navigator.share({files:[file],title:"OptiCost – "+fname})
+          .then(()=>showModal("✅ Shared","File shared successfully."))
+          .catch(err=>{ if(err.name!=="AbortError") _dataUriSave(blob,fname,successMsg); });
+        return;
+      }
+    }catch(e){}
+  }
+  _dataUriSave(blob,fname,successMsg);
+}
+
+function _dataUriSave(blob,fname,successMsg){
+  // Convert blob to object URL — more reliable than data URIs for large files
   try{
-    // Method 1: anchor click (works in most browsers)
+    const url=URL.createObjectURL(blob);
     const a=document.createElement("a");
-    a.href=dataUrl;
+    a.href=url;
     a.download=fname;
-    a.style.cssText="position:fixed;top:-999px;left:-999px;opacity:0;";
+    a.style.cssText="position:fixed;top:-9999px;left:-9999px;";
     document.body.appendChild(a);
-    // Use both click() and dispatchEvent for WebView compatibility
-    try{ a.click(); }catch(e1){
-      try{ a.dispatchEvent(new MouseEvent("click",{bubbles:true,cancelable:true,view:window})); }catch(e2){}
-    }
-    setTimeout(()=>{try{document.body.removeChild(a);}catch{}},1500);
-    showModal("✅ "+successMsg,"File: "+fname+"\n\n📂 Check your Downloads folder.\n\nIf save did not work, use ↗ Share IMG button instead.");
+    a.click();
+    setTimeout(()=>{
+      try{URL.revokeObjectURL(url);}catch{}
+      try{document.body.removeChild(a);}catch{}
+    },3500);
+    setTimeout(()=>{
+      showModal("✅ "+successMsg,"File: "+fname+"\n\n📂 Check Downloads in your Files app.");
+    },400);
   }catch(e){
-    showModal("Cannot Auto-Save","Use the ↗ Share IMG / Share button to export the report.\n\nError: "+e.message);
+    showModal("Save Failed","Could not save file.\nTry using the ↗ Share IMG button.\n\n"+e.message);
   }
 }
 
@@ -1477,6 +1537,8 @@ function _finishCanvas(ctx,cv,W,H,PAD,HEADER_H,META_H,FOOTER_H,ROW_H,SEC_H,DIV_H
   ctx.fillText("Generated by OptiCost LRMCE v2.0  |  Optics & Allied Engg. Pvt. Ltd.  |  www.opticsindia.com",W/2,H-FOOTER_H+22);
   ctx.textAlign="left";
   callback(cv);
+  // NOTE: canvas cleanup is done by the caller AFTER toBlob() completes
+  // (toBlob is async — shrinking here would corrupt the encode)
 }
 
 // ═══════════════════════════════════════
@@ -1494,26 +1556,11 @@ function saveReportImage(fmt){
         const fname="OptiCost_Report_"+new Date().toISOString().slice(0,19).replace(/[T:]/g,"-")+"."+ext;
         cv.toBlob(function(blob){
           _closeModal();
+          // Free canvas memory now that toBlob is done (each canvas = 3-8 MB)
+          try{cv.width=1;cv.height=1;}catch{}
           if(!blob){showModal("Error","Could not generate image.");return;}
-          // PATH 1: Android saveFile with base64
-          if(_hasAndroidBridge()){
-            try{
-              const reader=new FileReader();
-              reader.onload=function(){
-                try{
-                  Android.saveFile(reader.result,fname,mime);
-                }catch(e){
-                  console.warn("Android.saveFile failed:",e);
-                  _masterSaveBinary(blob,fname,mime,"Image Saved");
-                }
-              };
-              reader.onerror=()=>_masterSaveBinary(blob,fname,mime,"Image Saved");
-              reader.readAsDataURL(blob);
-              return;
-            }catch(e){ console.warn("saveFile bridge error:",e); }
-          }
           _masterSaveBinary(blob,fname,mime,"Image Saved");
-        },mime,0.95);
+        },mime,0.92);
       });
     }catch(e){_closeModal();showModal("Error","Image build failed: "+e.message);}
   },80);
@@ -1530,26 +1577,27 @@ function shareResultsText(){
       _buildReportCanvas(function(cv){
         _closeModal();
         const fname="OptiCost_Report_"+new Date().toISOString().slice(0,10)+".png";
-        // PATH 1: Android native shareImage
-        if(_hasAndroidBridge()){
-          try{
-            const dataUrl=cv.toDataURL("image/png",1);
-            Android.shareImage(dataUrl,fname);
-            return;
-          }catch(e){ console.warn("Android.shareImage failed:",e); }
-        }
-        // PATH 2: Web Share API
+        // Use toBlob for all paths — avoids OOM on low-RAM Android devices
         cv.toBlob(function(blob){
-          if(navigator.share){
-            const file=new File([blob],fname,{type:"image/png"});
-            if(navigator.canShare&&navigator.canShare({files:[file]})){
-              navigator.share({files:[file],title:"OptiCost Report",text:"Lens cost estimate"})
-                .then(()=>{}).catch(err=>{if(err.name!=="AbortError") _masterSaveBinary(blob,fname,"image/png","Image Saved");});
+          // Free canvas memory now that toBlob is done
+          try{cv.width=1;cv.height=1;}catch{}
+          if(!blob){showModal("Error","Could not generate image.");return;}
+          // PATH 1: Android native shareImage via base64
+          if(_hasAndroidBridge()){
+            try{
+              const r=new FileReader();
+              r.onload=function(){
+                try{ Android.shareImage(r.result,fname); }
+                catch(e){ _masterSaveBinary(blob,fname,"image/png","Image Saved"); }
+              };
+              r.onerror=function(){ _masterSaveBinary(blob,fname,"image/png","Image Saved"); };
+              r.readAsDataURL(blob);
               return;
-            }
+            }catch(e){ console.warn("Android.shareImage failed:",e); }
           }
-          _masterSaveBinary(blob,fname,"image/png","Image Saved");
-        },"image/png",1);
+          // PATH 2: Web Share API / fallback
+          _masterSaveBinary(blob,fname,"image/png","Image Shared");
+        },"image/png",0.95);
       });
     }catch(e){_closeModal();showModal("Error","Share failed: "+e.message);}
   },80);
@@ -1874,70 +1922,62 @@ window.addEventListener('DOMContentLoaded',()=>{
   if(de) de.value=new Date().toLocaleDateString();
 
   // ── Restore session if page was refreshed ──────────────────
-  let _restoredSession=false;
-  try{
-    const savedUser=sessionStorage.getItem("opticost_session");
-    if(savedUser){
-      // Verify user still exists and is not expired
-      _getAllUsers().then(users=>{
-        const rec=users[savedUser.toLowerCase()];
-        if(rec && new Date()<=new Date(rec.expires)){
-          currentUser=savedUser;
-          document.getElementById("logged-in-label").textContent="👤 "+savedUser;
-          showScreen("screen-main");
-        }else{
-          sessionStorage.removeItem("opticost_session");
-          showScreen("screen-login");
-        }
-      }).catch(()=>showScreen("screen-login"));
-      _restoredSession=true;
-    }
-  }catch(e){}
+  var _savedUser=null;
+  try{ _savedUser=sessionStorage.getItem("opticost_session"); }catch(e){}
 
-  if(!_restoredSession) showScreen("screen-login");
+  if(_savedUser){
+    // Show login screen immediately so there is no blank flash,
+    // then switch to main once DB confirms session is still valid
+    showScreen("screen-login");
+    _getAllUsers().then(function(users){
+      var rec=users[_savedUser.toLowerCase()];
+      if(rec && new Date()<=new Date(rec.expires)){
+        currentUser=_savedUser;
+        document.getElementById("logged-in-label").textContent="👤 "+_savedUser;
+        showScreen("screen-main");
+      }else{
+        try{sessionStorage.removeItem("opticost_session");}catch(e){}
+        showScreen("screen-login");
+      }
+    }).catch(function(){ showScreen("screen-login"); });
+  }else{
+    showScreen("screen-login");
+  }
 
   // ── App lifecycle — save materials on close/background ──────
+  // Single guarded function used by ALL three lifecycle events.
+  // Flag ensures only ONE write happens even when all three fire together
+  // (which Android does when user presses Home: visibility→pagehide→beforeunload)
+  var _didLifecycleSave=false;
+  function _lifecycleSave(){
+    if(_didLifecycleSave) return;  // already saved this session-end
+    _didLifecycleSave=true;
+    try{clearTimeout(_matSaveTimer);}catch{}  // cancel pending debounce
+    if(MATERIALS.length>0){
+      const json=JSON.stringify(MATERIALS);
+      if(_hasAndroidBridge()){
+        try{ Android.saveFile_internal("materials.json",json); }catch(e){}
+      }
+      try{ localStorage.setItem("opticost_materials",json); }catch(e){}
+    }
+  }
 
-  // visibilitychange: fired when app goes to background on Android
+  // visibilitychange: app goes to background (Home button on Android)
   document.addEventListener('visibilitychange',()=>{
     if(document.visibilityState==='hidden'){
-      // Only read table if it's currently rendered (user was on materials tab)
+      // Read table into memory first if user was on Materials tab
       const tbody=document.getElementById("mat-tbody");
-      if(tbody && tbody.children.length>0){
-        readMatTableIntoMemory();
-      }
-      // Always persist current MATERIALS (don't overwrite with empty)
-      if(MATERIALS.length>0){
-        const json=JSON.stringify(MATERIALS);
-        if(_hasAndroidBridge()){
-          try{ Android.saveFile_internal("materials.json",json); }catch(e){}
-        }
-        try{ localStorage.setItem("opticost_materials",json); }catch(e){}
-      }
+      if(tbody && tbody.children.length>0) readMatTableIntoMemory();
+      _lifecycleSave();
+    } else {
+      // App came back to foreground — reset flag so next background saves again
+      _didLifecycleSave=false;
     }
   });
 
-  // pagehide: fired just before page unloads
-  window.addEventListener('pagehide',()=>{
-    if(MATERIALS.length>0){
-      const json=JSON.stringify(MATERIALS);
-      if(_hasAndroidBridge()){
-        try{ Android.saveFile_internal("materials.json",json); }catch(e){}
-      }
-      try{ localStorage.setItem("opticost_materials",json); }catch(e){}
-    }
-  });
-
-  // beforeunload: browser fallback
-  window.addEventListener('beforeunload',()=>{
-    if(MATERIALS.length>0){
-      const json=JSON.stringify(MATERIALS);
-      if(_hasAndroidBridge()){
-        try{ Android.saveFile_internal("materials.json",json); }catch(e){}
-      }
-      try{ localStorage.setItem("opticost_materials",json); }catch(e){}
-    }
-  });
+  // pagehide + beforeunload: app fully closing
+  window.addEventListener('pagehide',_lifecycleSave);
+  window.addEventListener('beforeunload',_lifecycleSave);
 
 });// end DOMContentLoaded
 
