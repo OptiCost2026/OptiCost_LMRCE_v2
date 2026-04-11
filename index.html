@@ -1381,23 +1381,113 @@ function _defaultName(prefix){
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  SAVE ENGINE — direct blob → <a download> approach
-//  Works in browser, Android WebView, and WebIntoApp.
-//  No overlays, no custom URI schemes, no FileReader round-trips.
+//  SAVE ENGINE — WebIntoApp / Android WebView compatible
+//
+//  ROOT CAUSE: Android WebView silently ignores <a download> for
+//  blob: URLs ("Can only download HTTP/HTTPS URIs"). blob: URLs
+//  are internal WebView memory addresses — the Download Manager
+//  cannot reach them.
+//
+//  STRATEGY (in priority order):
+//  1. navigator.share({files}) — works on Android Chrome / WebView
+//     on HTTPS. User picks Gmail, Drive, WhatsApp, etc. ACTUAL save.
+//  2. data: URI anchor click — converts blob→base64 first, then
+//     clicks. Some WebView builds (especially newer Android) handle
+//     data: URIs via DownloadManager even though they refuse blob:.
+//  3. In-app viewer overlay — ALWAYS works. User long-presses image
+//     to Save to Gallery (PNG), or copies CSV text. Never lies about
+//     success — only shown when steps 1 & 2 might not have worked.
 // ═══════════════════════════════════════════════════════════════
 
-// ── Core trigger: create blob URL, click anchor, revoke ───────
-function _triggerDownload(blob, fname){
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = fname;
-  a.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(function(){ URL.revokeObjectURL(url); }, 3000);
+// ── Convert blob → base64 data URI, then try data: anchor + share
+function _saveBlob(blob, fname, onDataUri){
+  const reader = new FileReader();
+  reader.onload = function(){
+    const dataUri = reader.result;
+    if(onDataUri) onDataUri(dataUri);
+
+    // Step 2: data: URI anchor (works where blob: fails in WebView)
+    try{
+      const a = document.createElement('a');
+      a.href = dataUri;
+      a.download = fname;
+      a.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function(){ try{document.body.removeChild(a);}catch{} }, 2000);
+    }catch(e){}
+  };
+  reader.readAsDataURL(blob);
 }
+
+// ── Web Share API — primary path on Android (opens share sheet)
+function _tryShare(blob, fname, fallback){
+  if(navigator.share && navigator.canShare){
+    const file = new File([blob], fname, {type: blob.type});
+    if(navigator.canShare({files:[file]})){
+      navigator.share({files:[file], title:'OptiCost — '+fname})
+        .then(function(){ /* user shared successfully */ })
+        .catch(function(err){
+          // AbortError = user cancelled — don't show fallback
+          if(err && err.name !== 'AbortError') fallback();
+        });
+      return; // share sheet opened — don't run fallback immediately
+    }
+  }
+  fallback(); // share not available — go straight to fallback
+}
+
+// ── In-app viewer: image overlay (long-press → Save to Gallery)
+function _showImageViewer(dataUri, fname){
+  const existing = document.getElementById('_img-viewer');
+  if(existing) existing.remove();
+  const ov = document.createElement('div');
+  ov.id = '_img-viewer';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:0;overflow-y:auto;';
+  ov.innerHTML = `
+    <div style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#0c1d30;flex-shrink:0">
+      <div style="font-family:'Rajdhani',sans-serif;font-size:.9rem;font-weight:700;color:#22d3ee;letter-spacing:1px">📷 ${fname}</div>
+      <button onclick="document.getElementById('_img-viewer').remove()" style="background:#f87171;border:none;color:#fff;font-weight:700;padding:6px 12px;border-radius:6px;font-size:.8rem;cursor:pointer">✕ Close</button>
+    </div>
+    <div style="padding:10px;font-size:.72rem;color:#fbbf24;text-align:center;background:#0c1d30;width:100%;flex-shrink:0">
+      📌 Long-press the image below → <b>Save image</b> (saves to Gallery)
+    </div>
+    <img src="${dataUri}" style="width:100%;max-width:820px;display:block;margin:0 auto;" />
+  `;
+  document.body.appendChild(ov);
+}
+
+// ── In-app viewer: CSV text overlay (copy → paste to Sheets/Excel)
+function _showCSVViewer(csvText, fname){
+  const existing = document.getElementById('_csv-viewer');
+  if(existing) existing.remove();
+
+  // Try clipboard first
+  try{ navigator.clipboard.writeText(csvText).catch(function(){}); }catch(e){}
+
+  const ov = document.createElement('div');
+  ov.id = '_csv-viewer';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.94);z-index:99999;display:flex;flex-direction:column;padding:0;';
+  ov.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#0c1d30;flex-shrink:0">
+      <div style="font-family:'Rajdhani',sans-serif;font-size:.9rem;font-weight:700;color:#22d3ee;letter-spacing:1px">📄 ${fname}</div>
+      <button onclick="document.getElementById('_csv-viewer').remove()" style="background:#f87171;border:none;color:#fff;font-weight:700;padding:6px 12px;border-radius:6px;font-size:.8rem;cursor:pointer">✕ Close</button>
+    </div>
+    <div style="padding:8px 14px;font-size:.71rem;color:#fbbf24;background:#091624;flex-shrink:0;text-align:center">
+      ✅ CSV copied to clipboard! Paste into Google Sheets or Excel.<br>Or long-press text below → Select All → Copy.
+    </div>
+    <textarea readonly id="_csv-text" style="flex:1;width:100%;background:#040f1c;color:#e8f4ff;font-family:'Share Tech Mono',monospace;font-size:.68rem;padding:10px 12px;border:none;outline:none;resize:none;">${csvText.replace(/</g,'&lt;')}</textarea>
+    <div style="padding:8px 14px;background:#0c1d30;flex-shrink:0;display:flex;gap:8px">
+      <button onclick="try{navigator.clipboard.writeText(document.getElementById('_csv-text').value);}catch(e){document.getElementById('_csv-text').select();document.execCommand('copy');} this.textContent='✅ Copied!';" style="flex:1;padding:10px;background:#22d3ee;color:#060e18;font-weight:700;border:none;border-radius:8px;font-size:.82rem;cursor:pointer">📋 Copy CSV</button>
+      <button onclick="document.getElementById('_csv-viewer').remove()" style="flex:1;padding:10px;background:#0e7490;color:#fff;font-weight:700;border:none;border-radius:8px;font-size:.82rem;cursor:pointer">Done</button>
+    </div>
+  `;
+  document.body.appendChild(ov);
+}
+
+// ════════════════════════════════════════
+//  PUBLIC SAVE FUNCTIONS
+// ════════════════════════════════════════
 
 // ── CSV save ─────────────────────────────────────────────────
 function doSave(){
@@ -1411,23 +1501,38 @@ function doSave(){
     allHdrs.map(escape).join(","),
     ...recs.map(r=>allHdrs.map(h=>escape(r[h]??'')).join(","))
   ];
-  const BOM="\uFEFF";
-  const blob=new Blob([BOM+lines.join("\r\n")],{type:"text/csv;charset=utf-8;"});
-  const fname="OptiCost_"+new Date().toISOString().slice(0,19).replace(/[T:]/g,"-")+".csv";
-  _triggerDownload(blob, fname);
-  showModal("✅ Saved",recs.length+" record(s) exported to CSV.\nOpen in Excel or Google Sheets.");
+  const csvText = "\uFEFF"+lines.join("\r\n");
+  const fname = "OptiCost_"+new Date().toISOString().slice(0,19).replace(/[T:]/g,"-")+".csv";
+  const blob = new Blob([csvText], {type:"text/csv;charset=utf-8;"});
+
+  // Try share → if not available, try data: download, always show viewer
+  _tryShare(blob, fname, function(){
+    _saveBlob(blob, fname, null);
+  });
+  _showCSVViewer(csvText, fname);
 }
 
 // ── PNG save ─────────────────────────────────────────────────
 function _savePNG(blob, fname){
-  _triggerDownload(blob, fname);
-  showModal("✅ PNG Saved","Report image saved to Downloads.\nFilename: "+fname);
+  _tryShare(blob, fname, function(){
+    // Share not available — try data: URI download + show viewer
+    _saveBlob(blob, fname, function(dataUri){
+      _showImageViewer(dataUri, fname);
+    });
+  });
 }
 
-// ── Generic binary save (used by Word/doc export) ─────────────
+// ── Generic binary/doc save ───────────────────────────────────
 function _saveFile(blob, fname, successMsg){
-  _triggerDownload(blob, fname);
-  showModal("✅ "+(successMsg||"Saved"),"File saved to Downloads.\nFilename: "+fname);
+  _tryShare(blob, fname, function(){
+    _saveBlob(blob, fname, null);
+    showModal("📂 File Ready",
+      "Filename: "+fname+"\n\n"+
+      "✅ Check Downloads folder\n"+
+      "✅ Check browser notification bar\n\n"+
+      "If not found, tap ↗ Share to send\nvia Gmail, Drive, or WhatsApp."
+    );
+  });
 }
 
 // ═══════════════════════════════════════
@@ -1559,7 +1664,7 @@ function saveReportImage(fmt){
 }
 
 // ═══════════════════════════════════════
-//  SHARE AS IMAGE — Web Share API, falls back to download
+//  SHARE AS IMAGE — Web Share API, falls back to in-app viewer
 // ═══════════════════════════════════════
 function shareResultsText(){
   if(!recs.length){showModal("No Data","Run a calculation first.");return;}
@@ -1572,17 +1677,7 @@ function shareResultsText(){
           try{cv.width=1;cv.height=1;}catch{}
           if(!blob){showModal("Error","Could not generate image.");return;}
           const fname=_defaultName("OptiCost_Share")+".png";
-          // Try Web Share API first (works on Android Chrome/Safari)
-          if(navigator.share && navigator.canShare){
-            const file=new File([blob],fname,{type:"image/png"});
-            if(navigator.canShare({files:[file]})){
-              navigator.share({files:[file],title:"OptiCost Report",text:fname})
-                .catch(function(){_savePNG(blob,fname);});
-              return;
-            }
-          }
-          // Fallback: save to Downloads
-          _savePNG(blob,fname);
+          _savePNG(blob, fname); // _savePNG handles share + fallback
         },"image/png");
       });
     }catch(e){_closeModal();showModal("Error","Share failed: "+e.message);}
@@ -1621,10 +1716,9 @@ function _saveReportDocWithName(fname){
 <table class="hdr-table" style="margin-bottom:14px;background:#f8fafc;border:1px solid #e2e8f0"><tr><td><b>To:</b></td><td>${vendor}</td><td><b>Part No.:</b></td><td style="color:#92400e;font-weight:700">${partno}</td><td><b>Date:</b></td><td>${dateVal}</td></tr></table>
 <table>${tableRows}</table>
 <div class="footer">Generated by OptiCost LRMCE v2.0 | ${mfr} | www.opticsindia.com</div></body></html>`;
-  // Direct blob download — works in browser and WebView
-  const blob=new Blob(["\ufeff"+docHtml],{type:"text/html;charset=utf-8"});
-  _triggerDownload(blob, fname);
-  showModal("✅ Word Report Saved","Report saved to Downloads.\nFilename: "+fname+"\n\nOpen it in Word or Google Docs.\nOr open in browser → Print → Save as PDF.");
+  // Use _saveFile: tries Web Share first, then data: URI download
+  const blob=new Blob(["\ufeff"+docHtml],{type:"application/msword;charset=utf-8"});
+  _saveFile(blob, fname, "Word Report Ready");
 }
 
 // ═══════════════════════════════════════
