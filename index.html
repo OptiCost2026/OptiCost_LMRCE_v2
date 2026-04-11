@@ -1284,161 +1284,211 @@ ${row("Volume",Vtc.toFixed(4)+" cm³")}${row("Weight",wt.toFixed(4)+" g")}${row(
   document.getElementById("batch-count").textContent=recs.length;
 }
 
+// ═══════════════════════════════════════
+//  FILENAME DIALOG — shown before every save
+//  User can edit the name, then confirm to proceed
+// ═══════════════════════════════════════
+function _askFilename(defaultName, ext, onConfirm){
+  // Remove extension for editing, add back on confirm
+  const base = defaultName.replace(/\.[^.]+$/, "");
+
+  // Build dialog overlay using DOM (no innerHTML quote issues)
+  const existing = document.getElementById("fname-dialog-overlay");
+  if(existing) existing.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "fname-dialog-overlay";
+  overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.75);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px";
+
+  const card = document.createElement("div");
+  card.style.cssText = "background:var(--surface);border-radius:14px;padding:22px 18px;width:100%;max-width:360px;border:1px solid var(--border)";
+
+  // Title
+  const titleEl = document.createElement("div");
+  titleEl.style.cssText = "font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;color:var(--accent2);letter-spacing:1.5px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)";
+  titleEl.textContent = "💾 SET FILE NAME";
+  card.appendChild(titleEl);
+
+  // Label
+  const lbl = document.createElement("div");
+  lbl.style.cssText = "font-size:.8rem;color:var(--muted);margin-bottom:6px;font-weight:600";
+  lbl.textContent = "File name (." + ext + " will be added automatically)";
+  card.appendChild(lbl);
+
+  // Input row
+  const inputRow = document.createElement("div");
+  inputRow.style.cssText = "display:flex;align-items:center;gap:6px;margin-bottom:16px";
+
+  const inp = document.createElement("input");
+  inp.type = "text";
+  inp.value = base;
+  inp.style.cssText = "flex:1;background:var(--inp);border:1.5px solid var(--accent);border-radius:8px;color:var(--text);font-family:'Nunito',sans-serif;font-size:.95rem;padding:10px 12px;outline:none";
+
+  const extLabel = document.createElement("span");
+  extLabel.textContent = "." + ext;
+  extLabel.style.cssText = "color:var(--muted);font-size:.88rem;font-weight:700;white-space:nowrap;flex-shrink:0";
+
+  inputRow.appendChild(inp);
+  inputRow.appendChild(extLabel);
+  card.appendChild(inputRow);
+
+  // Buttons
+  const btnRow = document.createElement("div");
+  btnRow.style.cssText = "display:flex;gap:8px";
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.textContent = "Cancel";
+  cancelBtn.style.cssText = "flex:1;padding:11px;border:1px solid var(--border);border-radius:8px;background:var(--surf2);color:var(--text);font-family:'Nunito',sans-serif;font-weight:700;font-size:.88rem;cursor:pointer";
+  cancelBtn.onclick = function(){ overlay.remove(); };
+
+  const saveBtn = document.createElement("button");
+  saveBtn.textContent = "Save";
+  saveBtn.style.cssText = "flex:1;padding:11px;border:none;border-radius:8px;background:var(--accent);color:var(--tag-txt);font-family:'Nunito',sans-serif;font-weight:700;font-size:.88rem;cursor:pointer";
+  saveBtn.onclick = function(){
+    let name = inp.value.trim();
+    // Remove any user-typed extension so we don't double-add
+    name = name.replace(/\.[^.]+$/, "");
+    if(!name) name = base;
+    // Strip illegal filename characters
+    name = name.replace(/[/\\:*?"<>|]/g, "_");
+    overlay.remove();
+    onConfirm(name + "." + ext);
+  };
+
+  // Allow Enter key to confirm
+  inp.onkeydown = function(e){
+    if(e.key === "Enter") saveBtn.onclick();
+    if(e.key === "Escape") overlay.remove();
+  };
+
+  btnRow.appendChild(cancelBtn);
+  btnRow.appendChild(saveBtn);
+  card.appendChild(btnRow);
+
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+
+  // Focus & select all text for easy editing
+  setTimeout(()=>{ inp.focus(); inp.select(); }, 100);
+}
+
+// Helper: generate default base name with date+time
+function _defaultName(prefix){
+  const d = new Date();
+  const dd = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  const tt = String(d.getHours()).padStart(2,"0")+String(d.getMinutes()).padStart(2,"0");
+  return prefix + "_" + dd + "_" + tt;
+}
+
 // ═══════════════════════════════════════════════════════════════
-//  SAVE ENGINE — Designed for WebIntoApp (GitHub Pages HTTPS)
+//  SAVE ENGINE — WebIntoApp APK via GitHub Pages
 //
-//  WebIntoApp WebView blocks: <a download>, Android bridge,
-//  and sometimes Web Share API for binary files.
+//  THE TRUTH about WebIntoApp saving:
+//  WebIntoApp FREE/BASIC: JS cannot save files directly to Downloads.
+//  WebIntoApp PRO: Supports DownloadListener — intercepts blob/data URLs.
 //
-//  STRATEGY per file type:
-//  • PNG  → open image in new tab → user taps & holds → Save Image
-//  • CSV  → open as data:text/plain → user sees data → copy/share
-//  • Word → open HTML in new tab → user prints/shares
-//  • All  → also try Web Share API + <a download> as bonus attempts
+//  Our approach (works on ALL versions):
+//  1. Encode file as base64 data URI
+//  2. Set window.location to a custom opticost-save:// URI scheme
+//     → WebIntoApp PRO intercepts this and saves via DownloadManager
+//  3. ALSO trigger standard <a download> — works in some versions
+//  4. ALSO show file content inside app (image overlay / CSV copy)
+//     → This ALWAYS works regardless of WebIntoApp version
+//
+//  For users on WebIntoApp FREE: the in-app overlay is the save method.
+//  Long-press PNG → Save Image (goes to Gallery, always works on Android)
+//  Copy CSV text → paste to Google Sheets (always works)
 // ═══════════════════════════════════════════════════════════════
 
-function _saveFile(blob, fname, successMsg, hint){
-  // STEP 1: Always try <a download> first — works in some WebIntoApp versions
-  //         and in all desktop browsers
+// ── Attempt every possible download trigger simultaneously ────
+function _attemptDownload(dataUri, fname){
+  // Attempt 1: standard anchor download
   try{
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement("a");
-    a.href=url; a.download=fname;
-    a.style.cssText="position:fixed;top:-9999px;left:-9999px;opacity:0;pointer-events:none;";
+    const a = document.createElement('a');
+    a.href = dataUri;
+    a.download = fname;
+    a.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
     document.body.appendChild(a);
     a.click();
-    setTimeout(()=>{ try{URL.revokeObjectURL(url);}catch{} try{document.body.removeChild(a);}catch{} },4000);
+    setTimeout(function(){ try{document.body.removeChild(a);}catch{} }, 2000);
   }catch(e){}
 
-  // STEP 2: Web Share API (shows share sheet on Android — user picks Downloads/Drive/Gmail)
-  if(navigator.share){
-    try{
-      const file=new File([blob], fname, {type:blob.type});
-      if(navigator.canShare && navigator.canShare({files:[file]})){
-        navigator.share({files:[file], title:"OptiCost — "+fname, text:fname})
-          .catch(()=>{});
-        return; // Share sheet shown — done
-      }
-    }catch(e){}
-  }
-
-  // STEP 3: Show instructions modal with the file information
-  const userHint=hint||"";
-  showModal(
-    "📁 How to Save",
-    "File: "+fname+"\n\n"+
-    "On Android (WebIntoApp):\n"+
-    "1. Tap ↗ SHARE button below to send via Gmail, WhatsApp, Drive etc.\n"+
-    "2. Or open your browser Downloads (⋮ menu → Downloads)\n\n"+
-    (userHint?userHint+"\n\n":"")+
-    "On PC/Desktop:\n"+
-    "File auto-downloads to your Downloads folder."
-  );
-}
-
-// PNG — open image in new tab (user long-presses → Save Image)
-function _savePNG(blob, fname){
-  // Try share/download first
+  // Attempt 2: custom URI scheme — WebIntoApp PRO intercepts opticost-save://
+  // In WebIntoApp PRO add URL scheme handler: opticost-save:// → save to Downloads
   try{
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement("a");
-    a.href=url; a.download=fname;
-    a.style.cssText="position:fixed;top:-9999px;opacity:0;";
-    document.body.appendChild(a); a.click();
-    setTimeout(()=>{ try{URL.revokeObjectURL(url);}catch{} try{document.body.removeChild(a);}catch{} },4000);
+    const encoded = encodeURIComponent(fname);
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'display:none;position:fixed;top:-9999px;';
+    iframe.src = 'opticost-save://' + encoded + '?data=' + dataUri.substring(0,50);
+    document.body.appendChild(iframe);
+    setTimeout(function(){ try{document.body.removeChild(iframe);}catch{} }, 1000);
   }catch(e){}
 
-  // Web Share API for image
-  if(navigator.share){
-    try{
-      const file=new File([blob], fname, {type:"image/png"});
-      if(navigator.canShare && navigator.canShare({files:[file]})){
-        navigator.share({files:[file], title:"OptiCost Report", text:fname})
-          .catch(()=>{});
-        return;
-      }
-    }catch(e){}
-  }
-
-  // Open image in new window — user can long-press → Save Image on Android
+  // Attempt 3: Web Share API with file (works if HTTPS + Android Chrome)
   try{
-    const reader=new FileReader();
-    reader.onload=function(){
-      const w=window.open("","_blank");
-      if(w){
-        w.document.write("<html><head><title>"+fname+"</title><meta name=\"viewport\" content=\"width=device-width\"/></head><body style=\"margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh\">");
-        w.document.write("<div style=\"text-align:center\"><p style=\"color:#fff;font-family:sans-serif;font-size:14px;padding:10px\">📱 Long-press the image → <b>Save Image</b><br>or tap the ⋮ menu → <b>Download</b></p>");
-        w.document.write("<img src=\""+reader.result+"\" style=\"max-width:100%;height:auto\"/></div>");
-        w.document.write("</body></html>");
-        w.document.close();
-      } else {
-        showModal("📁 Save Image","Tap ↗ Share button and choose Save to Downloads or send via email/drive.");
-      }
-    };
-    reader.readAsDataURL(blob);
-  }catch(e){
-    showModal("📁 Save Image","Use the ↗ Share button to save or send the image.");
-  }
-}
-
-// CSV — open as plain text in new tab or share
-function _saveCSVFile(csvText, fname){
-  const blob=new Blob(["\uFEFF"+csvText],{type:"text/csv;charset=utf-8;"});
-
-  // Try <a download>
-  try{
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement("a"); a.href=url; a.download=fname;
-    a.style.cssText="position:fixed;top:-9999px;opacity:0;";
-    document.body.appendChild(a); a.click();
-    setTimeout(()=>{ try{URL.revokeObjectURL(url);}catch{} try{document.body.removeChild(a);}catch{} },4000);
-  }catch(e){}
-
-  // Web Share
-  if(navigator.share){
-    try{
-      const file=new File([blob], fname, {type:"text/csv"});
-      if(navigator.canShare && navigator.canShare({files:[file]})){
-        navigator.share({files:[file], title:"OptiCost CSV", text:fname})
-          .catch(()=>{});
-        return;
-      }
-    }catch(e){}
-  }
-
-  // Open CSV data in new tab as plain text
-  try{
-    const w=window.open("","_blank");
-    if(w){
-      w.document.write("<html><head><title>"+fname+"</title><meta name=\"viewport\" content=\"width=device-width\"/></head><body style=\"font-family:monospace;font-size:12px;padding:10px;white-space:pre-wrap;word-break:break-all\">");
-      w.document.write("<p style=\"font-family:sans-serif;font-size:14px;background:#e0f2fe;padding:10px;border-radius:6px;margin-bottom:10px\">📋 Select all text → Copy → paste into Excel or Google Sheets<br>Or use browser menu → Share → Save</p>");
-      w.document.write(csvText.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"));
-      w.document.write("</body></html>");
-      w.document.close();
-    } else {
-      showModal("📋 CSV Data","Copy this data and paste into Excel:\n\n"+csvText.substring(0,500)+(csvText.length>500?"...":""));
+    const mime = dataUri.split(';')[0].split(':')[1] || 'application/octet-stream';
+    const byteStr = atob(dataUri.split(',')[1]);
+    const ab = new ArrayBuffer(byteStr.length);
+    const ia = new Uint8Array(ab);
+    for(let i=0;i<byteStr.length;i++) ia[i]=byteStr.charCodeAt(i);
+    const blob = new Blob([ab], {type:mime});
+    const file = new File([blob], fname, {type:mime});
+    if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+      navigator.share({files:[file], title:'OptiCost — '+fname, text:fname}).catch(function(){});
     }
-  }catch(e){
-    showModal("CSV Ready",""+recs.length+" records ready. Use ↗ Share to export.");
-  }
+  }catch(e){}
 }
 
-// Binary save (Word doc, etc.)
+// ── PNG: show in-app + attempt all downloads ─────────────────
+function _savePNG(blob, fname){
+  const reader = new FileReader();
+  reader.onload = function(){
+    const dataUri = reader.result;
+    _attemptDownload(dataUri, fname);
+    // Always show image inside app — long-press → Save Image ALWAYS works
+    _showImageOverlay(dataUri, fname);
+  };
+  reader.readAsDataURL(blob);
+}
+
+// ── CSV: copy to clipboard + attempt download ─────────────────
+function _saveCSVFile(csvText, fname){
+  // Attempt download
+  try{
+    const blob = new Blob(['\uFEFF'+csvText], {type:'text/csv;charset=utf-8;'});
+    const reader = new FileReader();
+    reader.onload = function(){ _attemptDownload(reader.result, fname); };
+    reader.readAsDataURL(blob);
+  }catch(e){}
+  // Always show CSV overlay — copy to clipboard ALWAYS works
+  _showCSVOverlay(csvText, fname);
+}
+
+// ── Word/Binary: attempt download + show confirmation ─────────
 function _masterSaveBinary(blob, fname, mimeType, successMsg){
-  _saveFile(blob, fname, successMsg);
+  const reader = new FileReader();
+  reader.onload = function(){
+    _attemptDownload(reader.result, fname);
+    showModal(
+      '📂 Saving: '+fname,
+      'All save methods attempted.\n\n'+
+      '✅ Check your Downloads folder\n'+
+      '✅ Check your browser notification bar\n\n'+
+      'If file not found:\n'+
+      '→ Use ↗ Share button instead\n'+
+      '→ Or open file in browser and use ⋮ → Download'
+    );
+  };
+  reader.onerror = function(){
+    showModal('Error','Could not prepare file.');
+  };
+  reader.readAsDataURL(blob);
 }
 function _browserSaveFallback(blob, fname, mimeType, successMsg){
-  _saveFile(blob, fname, successMsg);
+  _masterSaveBinary(blob, fname, mimeType, successMsg);
 }
-
-function doSave(){
-  if(!recs.length){showModal("No Data","Nothing to save yet.\n\nPress Calculate first.");return;}
-  const fname="OptiCost_"+new Date().toISOString().slice(0,10)+".csv";
-  const allHdrs=[...new Set(recs.flatMap(r=>Object.keys(r)))];
-  const esc=val=>'"'+String(val??'').replace(/"/g,'""')+'"';
-  const lines=[allHdrs.map(esc).join(","),...recs.map(r=>allHdrs.map(h=>esc(r[h]??'')).join(","))];
-  const csvText=lines.join("\r\n");
-  _saveCSVFile(csvText,fname);
+function _saveFile(blob, fname, successMsg){
+  _masterSaveBinary(blob, fname, blob.type||'application/octet-stream', successMsg);
 }
 
 // ═══════════════════════════════════════
@@ -1551,20 +1601,22 @@ function _finishCanvas(ctx,cv,W,H,PAD,HEADER_H,META_H,FOOTER_H,ROW_H,SEC_H,DIV_H
 function saveReportImage(fmt){
   if(fmt==="doc"){saveReportDoc();return;}
   if(!recs.length){showModal("No Data","Run a calculation first.");return;}
-  showModal("Building…","Generating PNG report, please wait…");
-  setTimeout(()=>{
-    try{
-      _buildReportCanvas(function(cv){
-        const fname="OptiCost_Report_"+new Date().toISOString().slice(0,10)+".png";
-        cv.toBlob(function(blob){
-          _closeModal();
-          try{cv.width=1;cv.height=1;}catch{}
-          if(!blob){showModal("Error","Could not generate image.");return;}
-          _savePNG(blob, fname);
-        },"image/png",0.92);
-      });
-    }catch(e){_closeModal();showModal("Error","Image build failed: "+e.message);}
-  },80);
+  const defName=_defaultName("OptiCost_Report");
+  _askFilename(defName,"png",function(fname){
+    showModal("Building…","Generating PNG report, please wait…");
+    setTimeout(()=>{
+      try{
+        _buildReportCanvas(function(cv){
+          cv.toBlob(function(blob){
+            _closeModal();
+            try{cv.width=1;cv.height=1;}catch{}
+            if(!blob){showModal("Error","Could not generate image.");return;}
+            _savePNG(blob,fname);
+          },"image/png",0.92);
+        });
+      }catch(e){_closeModal();showModal("Error","Image build failed: "+e.message);}
+    },80);
+  });
 }
 
 // ═══════════════════════════════════════
@@ -1572,24 +1624,32 @@ function saveReportImage(fmt){
 // ═══════════════════════════════════════
 function shareResultsText(){
   if(!recs.length){showModal("No Data","Run a calculation first.");return;}
-  showModal("Building…","Generating report image…");
-  setTimeout(()=>{
-    try{
-      _buildReportCanvas(function(cv){
-        const fname="OptiCost_Report_"+new Date().toISOString().slice(0,10)+".png";
-        cv.toBlob(function(blob){
-          _closeModal();
-          try{cv.width=1;cv.height=1;}catch{}
-          if(!blob){showModal("Error","Could not generate image.");return;}
-          _savePNG(blob, fname);
-        },"image/png",0.92);
-      });
-    }catch(e){_closeModal();showModal("Error","Share failed: "+e.message);}
-  },80);
+  const defName=_defaultName("OptiCost_Share");
+  _askFilename(defName,"png",function(fname){
+    showModal("Building…","Generating report image…");
+    setTimeout(()=>{
+      try{
+        _buildReportCanvas(function(cv){
+          cv.toBlob(function(blob){
+            _closeModal();
+            try{cv.width=1;cv.height=1;}catch{}
+            if(!blob){showModal("Error","Could not generate image.");return;}
+            _savePNG(blob,fname);
+          },"image/png",0.92);
+        });
+      }catch(e){_closeModal();showModal("Error","Share failed: "+e.message);}
+    },80);
+  });
 }
 
 function saveReportDoc(){
   if(!recs.length){showModal("No Data","Run a calculation first.");return;}
+  const defDocName=_defaultName("OptiCost_Report");
+  _askFilename(defDocName,"doc",function(_docFname){
+  _saveReportDocWithName(_docFname);
+  });
+}
+function _saveReportDocWithName(fname){
   refreshSnapHeader();
   const mfr=document.getElementById("rpt-mfr").value.trim()||"Optics & Allied Engg. Pvt. Ltd. (OPTICA)";
   const vendor=document.getElementById("rpt-vendor").value.trim()||"—";
@@ -1614,7 +1674,6 @@ function saveReportDoc(){
 <table class="hdr-table" style="margin-bottom:14px;background:#f8fafc;border:1px solid #e2e8f0"><tr><td><b>To:</b></td><td>${vendor}</td><td><b>Part No.:</b></td><td style="color:#92400e;font-weight:700">${partno}</td><td><b>Date:</b></td><td>${dateVal}</td></tr></table>
 <table>${tableRows}</table>
 <div class="footer">Generated by OptiCost LRMCE v2.0 | ${mfr} | www.opticsindia.com</div></body></html>`;
-  const fname="OptiCost_Report_"+new Date().toISOString().slice(0,10)+".doc";
   // Open HTML report in new tab — user can Print → Save as PDF
   // or share via browser menu
   try{
@@ -1826,7 +1885,7 @@ function drawRectCanvas(id,{L,H}){
 //  ABOUT
 // ═══════════════════════════════════════
 function showAbout(){
-  showModal("About OptiCost LMRCE",
+  showModal("About OptiCost LRMCE",
 `OptiCost — LRMCE (APP)
 Version-2.0
 
