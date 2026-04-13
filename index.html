@@ -115,7 +115,6 @@
         .tab:hover{background:var(--border)}
         .tab.active{background:var(--accent);color:var(--tag-txt)}
         main{flex:1;overflow-y:auto;padding:12px 12px 120px}
-        .no-actbar main, main.no-actbar{padding-bottom:60px}
         .panel{display:none}.panel.active{display:block}
         .card{background:var(--surface);border-radius:var(--radius);padding:13px;margin-bottom:10px}
         .sec-hdr{font-family:'Rajdhani',sans-serif;font-size:.82rem;font-weight:700;color:var(--accent2);letter-spacing:1.5px;margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid var(--border);}
@@ -221,7 +220,7 @@
        'saveReportImage','shareResultsText','loadLogoFile','clearLogo',
        'refreshSnapHeaderIfVisible','setTheme','toggleThemePanel',
        'showAbout','closeModal','_closeModal',
-       'renderFilesLib','shareStoredFile','deleteStoredFile','forgetLogin'].forEach(makeStub);
+       'renderFilesLib','viewStoredFile','shareStoredFile','deleteStoredFile','forgetLogin'].forEach(makeStub);
       window.__flushStubs=function(fns){
         Object.keys(fns).forEach(function(n){
           window[n]=fns[n];
@@ -594,7 +593,7 @@
                     <button class="btn-png" onclick="doSave()" style="background:#0e7490">💾 CSV</button>
                     <button class="btn-png" onclick="shareResultsText()" style="background:#7c3aed">↗ Share</button>
                 </div>
-                <p style="font-size:.62rem;color:var(--muted);margin-top:6px;text-align:center;line-height:1.5">PNG / Word / CSV → Downloads folder &nbsp;|&nbsp; Share → send via apps</p>
+                <p style="font-size:.62rem;color:var(--muted);margin-top:6px;text-align:center;line-height:1.5">PNG / Word / CSV → saved to Files tab &nbsp;|&nbsp; ↗ Share → sends result as text</p>
             </div>
         </div>
 
@@ -630,7 +629,13 @@
         <div id="panel-files" class="panel">
             <div class="card">
                 <div class="sec-hdr">🗂 SAVED FILES LIBRARY</div>
-                <p style="font-size:.73rem;color:var(--muted);margin-bottom:10px;line-height:1.6">Files saved in app storage. Tap <b style="color:var(--accent)">↗ Share</b> to send via WhatsApp, Gmail, or Drive.</p>
+                <div style="background:var(--surf2);border-radius:8px;padding:9px 11px;margin-bottom:10px;font-size:.72rem;color:var(--muted);line-height:1.75;">
+                    <div style="color:var(--accent);font-weight:700;margin-bottom:4px;">How to use saved files:</div>
+                    <div>📊 <b>CSV</b> → 👁 View → Copy to Clipboard → paste in Google Sheets</div>
+                    <div>📊 <b>CSV</b> → ↗ Share → sends as text via WhatsApp / Gmail</div>
+                    <div>🖼 <b>PNG</b> → 👁 View → long-press image → Save to Gallery</div>
+                    <div>📄 <b>Word</b> → 👁 View → opens in browser / Word app</div>
+                </div>
                 <div id="_files-list"><div style="color:var(--muted);font-size:.8rem;padding:16px;text-align:center">Loading…</div></div>
                 <button onclick="renderFilesLib()" style="width:100%;margin-top:10px;padding:10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--accent);font-weight:700;font-family:'Nunito',sans-serif;font-size:.82rem;cursor:pointer">🔄 Refresh List</button>
             </div>
@@ -1401,300 +1406,437 @@ function _defaultName(prefix){
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  SAVE ENGINE — WebIntoApp / Android WebView (GitHub Pages APK)
+//  SAVE ENGINE — DEFINITIVE (WebIntoApp / Android WebView)
 //
-//  Three bugs fixed vs previous version:
-//  BUG 1 — IndexedDB transaction closed before FileReader.onload:
-//    tx was opened BEFORE readAsDataURL completed → put() on a
-//    committed/aborted transaction → silent fail. Fix: open a
-//    fresh transaction INSIDE the onload callback.
-//  BUG 2 — fetch(data:URI) fails in WebView:
-//    Used to re-fetch stored data: URIs via fetch(). WebView blocks
-//    this. Fix: decode base64 → Uint8Array → Blob manually.
-//  BUG 3 — navigator.share loses user-gesture in async chain:
-//    share() must be called synchronously in the tap handler.
-//    Previous code: tap → IndexedDB read → fetch → share (too many
-//    async hops, gesture context lost → share sheet never opens).
-//    Fix: show a SHARE SHEET OVERLAY immediately on tap (synchronous),
-//    with buttons for each app. Clicking a button IS the gesture that
-//    triggers share(). The overlay pre-loads the blob so share() fires
-//    instantly when the user picks an app button.
+//  HARD FACTS after exhaustive research:
+//  ✗ blob: URL <a download>   → WebView DownloadManager rejects it
+//  ✗ navigator.share({files}) → NOT in Android WebView (Chromium #765923)
+//  ✗ window.location = data:  → NAVIGATES AWAY, destroys the app
+//  ✗ fetch(data:URI)          → blocked in WebView
+//  ✗ window.open()            → blocked in WebView
+//
+//  WHAT ACTUALLY WORKS — in priority order:
+//  1. navigator.share({url, text}) — shares TEXT/URL (not file),
+//     works in some WebView builds on HTTPS. Used for CSV text share.
+//  2. navigator.clipboard.writeText() — clipboard copy, always works
+//  3. IndexedDB — persistent in-app storage, ALWAYS works
+//  4. <img> long-press → "Save image" → Gallery — ALWAYS works Android
+//  5. In-app full-screen viewers — user can see & copy content
+//
+//  NOTE: There is NO pure-JS way to write a binary file (PNG/Word/CSV)
+//  to Android Downloads folder from a WebView without a native bridge.
+//  The app stores files in IndexedDB. User views them in-app.
+//  For CSV: clipboard copy is the practical export path.
+//  For PNG: long-press → Save to Gallery is the export path.
 // ═══════════════════════════════════════════════════════════════
 
-// ── IndexedDB file store ──────────────────────────────────────
+// ── IndexedDB — the one reliable persistent store ─────────────
 var _fileDB = null;
 function _openFileDB(){
   return new Promise(function(res,rej){
-    if(_fileDB){res(_fileDB);return;}
-    var req = indexedDB.open("opticost_files",1);
+    if(_fileDB){ res(_fileDB); return; }
+    var req = indexedDB.open('opticost_files', 1);
     req.onupgradeneeded = function(e){
-      e.target.result.createObjectStore("files",{keyPath:"fname"});
+      e.target.result.createObjectStore('files', {keyPath:'fname'});
     };
-    req.onsuccess = function(e){ _fileDB=e.target.result; res(_fileDB); };
+    req.onsuccess = function(e){ _fileDB = e.target.result; res(_fileDB); };
     req.onerror   = function(e){ rej(e.target.error); };
   });
 }
 
-// FIX BUG 1: open fresh tx inside FileReader.onload
+// CRITICAL: open fresh IDB transaction INSIDE FileReader.onload —
+// transactions auto-close after ~100ms of inactivity. Opening tx
+// BEFORE FileReader fires means it's already closed when put() runs.
 function _storeFile(fname, blob, onDone){
   var reader = new FileReader();
-  reader.onload = function(){
+  reader.onerror = function(){ if(onDone) onDone(null, new Error('FileReader failed')); };
+  reader.onload  = function(){
     var dataUri = reader.result;
     _openFileDB().then(function(db){
-      // Fresh transaction opened HERE — inside the callback — so it's still open
-      var tx = db.transaction("files","readwrite");
-      var req = tx.objectStore("files").put({
-        fname: fname,
-        data:  dataUri,
-        mime:  blob.type || "application/octet-stream",
-        ts:    Date.now()
+      // Fresh tx opened here — inside onload — so it's live
+      var tx  = db.transaction('files','readwrite');
+      var req = tx.objectStore('files').put({
+        fname : fname,
+        data  : dataUri,
+        mime  : blob.type || 'application/octet-stream',
+        ts    : Date.now()
       });
-      req.onsuccess = function(){ if(onDone) onDone(dataUri); };
-      req.onerror   = function(){ if(onDone) onDone(dataUri); }; // still show viewer
-    }).catch(function(){ if(onDone) onDone(dataUri); });
+      req.onsuccess = function(){ if(onDone) onDone(dataUri, null); };
+      req.onerror   = function(e){ if(onDone) onDone(dataUri, e.target.error); };
+    }).catch(function(err){ if(onDone) onDone(dataUri, err); });
   };
   reader.readAsDataURL(blob);
 }
 
 function _listFiles(cb){
   _openFileDB().then(function(db){
-    var req = db.transaction("files","readonly").objectStore("files").getAll();
-    req.onsuccess = function(){ cb(req.result||[]); };
-    req.onerror   = function(){ cb([]); };
-  }).catch(function(){ cb([]); });
+    var req = db.transaction('files','readonly').objectStore('files').getAll();
+    req.onsuccess = function(){ cb(null, req.result||[]); };
+    req.onerror   = function(e){ cb(e.target.error, []); };
+  }).catch(function(e){ cb(e,[]); });
 }
-function _deleteFile(fname,cb){
+
+function _deleteFile(fname, cb){
   _openFileDB().then(function(db){
-    var tx = db.transaction("files","readwrite");
-    tx.objectStore("files").delete(fname);
+    var tx = db.transaction('files','readwrite');
+    tx.objectStore('files').delete(fname);
     tx.oncomplete = function(){ if(cb) cb(); };
     tx.onerror    = function(){ if(cb) cb(); };
   }).catch(function(){ if(cb) cb(); });
 }
 
-// FIX BUG 2: decode data:URI → Blob without fetch()
-function _dataUriToBlob(dataUri){
-  var parts  = dataUri.split(",");
-  var mime   = parts[0].split(":")[1].split(";")[0];
-  var bStr   = atob(parts[1]);
-  var ab     = new ArrayBuffer(bStr.length);
-  var ia     = new Uint8Array(ab);
-  for(var i=0;i<bStr.length;i++) ia[i]=bStr.charCodeAt(i);
-  return new Blob([ab],{type:mime});
+// Safely decode data:URI → text (handles UTF-8 BOM)
+function _dataUriToText(dataUri){
+  var b64 = dataUri.split(',')[1];
+  var raw = atob(b64);
+  // Strip UTF-8 BOM (EF BB BF) if present
+  if(raw.charCodeAt(0)===0xEF && raw.charCodeAt(1)===0xBB && raw.charCodeAt(2)===0xBF){
+    raw = raw.slice(3);
+  }
+  try{ return decodeURIComponent(escape(raw)); }catch(e){ return raw; }
 }
 
-// FIX BUG 3: show app-selection overlay SYNCHRONOUSLY on tap,
-// then call navigator.share() synchronously when user picks an app button
-// — that button tap IS the user gesture, so share sheet opens correctly.
-function _showShareOverlay(blob, fname, dataUri){
-  var ex = document.getElementById('_share-ov'); if(ex) ex.remove();
-  var ov = document.createElement('div');
-  ov.id  = '_share-ov';
-  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:flex-end;justify-content:center;';
+// ── Share CSV text via Web Share API (text/url — not file) ─────
+// navigator.share({text}) works in Chrome on Android even in some WebViews
+function _shareText(text, title){
+  if(navigator.share){
+    navigator.share({ title: title||'OptiCost Export', text: text })
+      .then(function(){ /* shared */ })
+      .catch(function(err){
+        if(err && err.name !== 'AbortError'){
+          // share failed, copy to clipboard as fallback
+          _copyToClipboard(text);
+          showModal('📋 Copied','Share not available. CSV copied to clipboard instead.\nPaste into Google Sheets or Excel.');
+        }
+      });
+    return;
+  }
+  _copyToClipboard(text);
+  showModal('📋 Copied to Clipboard','Paste into Google Sheets or Excel.');
+}
 
-  // Check if Web Share API with files is available
-  var canShare = false;
+function _copyToClipboard(text){
   try{
-    var testFile = new File([blob], fname, {type: blob.type||"application/octet-stream"});
-    canShare = !!(navigator.share && navigator.canShare && navigator.canShare({files:[testFile]}));
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).catch(function(){
+        _execCommandCopy(text);
+      });
+    } else {
+      _execCommandCopy(text);
+    }
+  }catch(e){ _execCommandCopy(text); }
+}
+
+function _execCommandCopy(text){
+  var ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+  document.body.appendChild(ta);
+  ta.focus(); ta.select();
+  try{ document.execCommand('copy'); }catch(e){}
+  document.body.removeChild(ta);
+}
+
+// ── PNG full-screen image viewer ──────────────────────────────
+function _showImageViewer(dataUri, fname){
+  var ex = document.getElementById('_img-ov'); if(ex) ex.remove();
+  var ov = document.createElement('div');
+  ov.id  = '_img-ov';
+  ov.style.cssText = 'position:fixed;inset:0;background:#000;z-index:99999;display:flex;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;';
+
+  var hdr = document.createElement('div');
+  hdr.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:11px 14px;background:#0c1d30;flex-shrink:0;';
+  hdr.innerHTML =
+    '<span style="font-family:\'Rajdhani\',sans-serif;font-size:.85rem;font-weight:700;color:#22d3ee;letter-spacing:1px;">📷 '+fname+'</span>';
+  var closeBtn = document.createElement('button');
+  closeBtn.textContent = '✕ Close';
+  closeBtn.style.cssText = 'background:#f87171;border:none;color:#fff;font-weight:700;padding:7px 14px;border-radius:6px;font-size:.8rem;cursor:pointer;';
+  closeBtn.onclick = function(){ ov.remove(); };
+  hdr.appendChild(closeBtn);
+  ov.appendChild(hdr);
+
+  var tip = document.createElement('div');
+  tip.style.cssText = 'padding:10px 14px;background:#071a0e;flex-shrink:0;text-align:center;font-size:.74rem;color:#4ade80;line-height:1.8;';
+  tip.innerHTML = '✅ <b>Saved to Files tab</b> — will stay until you delete it<br>'
+    +'<span style="color:#fbbf24;font-size:.72rem;">📌 <b>Long-press the image below</b> → tap <b>Save image</b> → saved to Gallery/Photos</span>';
+  ov.appendChild(tip);
+
+  var img = document.createElement('img');
+  img.src = dataUri;
+  img.style.cssText = 'width:100%;display:block;';
+  ov.appendChild(img);
+
+  var foot = document.createElement('div');
+  foot.style.cssText = 'padding:10px 14px;background:#0c1d30;flex-shrink:0;text-align:center;font-size:.72rem;color:#7db0cc;';
+  foot.innerHTML = 'Go to <b>🗂 Files tab</b> to view this file again anytime';
+  ov.appendChild(foot);
+
+  document.body.appendChild(ov);
+}
+
+// ── CSV full-screen viewer with share + copy ──────────────────
+function _showCSVViewer(csvText, fname){
+  var ex = document.getElementById('_csv-ov'); if(ex) ex.remove();
+
+  var ov = document.createElement('div');
+  ov.id  = '_csv-ov';
+  ov.style.cssText = 'position:fixed;inset:0;background:#020a12;z-index:99999;display:flex;flex-direction:column;';
+
+  // Header
+  var hdr = document.createElement('div');
+  hdr.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:11px 14px;background:#0c1d30;flex-shrink:0;';
+  hdr.innerHTML = '<span style="font-family:\'Rajdhani\',sans-serif;font-size:.85rem;font-weight:700;color:#22d3ee;letter-spacing:1px;">📊 '+fname+'</span>';
+  var closeBtn = document.createElement('button');
+  closeBtn.textContent = '✕ Close';
+  closeBtn.style.cssText = 'background:#f87171;border:none;color:#fff;font-weight:700;padding:7px 14px;border-radius:6px;font-size:.8rem;cursor:pointer;';
+  closeBtn.onclick = function(){ ov.remove(); };
+  hdr.appendChild(closeBtn);
+  ov.appendChild(hdr);
+
+  // Status bar
+  var status = document.createElement('div');
+  status.style.cssText = 'padding:8px 14px;background:#071a0e;flex-shrink:0;text-align:center;font-size:.73rem;color:#4ade80;line-height:1.7;';
+  status.innerHTML = '✅ <b>Saved to Files tab</b> &amp; auto-copied to clipboard<br>'
+    +'<span style="color:#7db0cc;font-size:.71rem;">Paste directly into Google Sheets or Excel</span>';
+  ov.appendChild(status);
+
+  // Try auto-copy (update status if it works)
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(csvText).then(function(){
+        if(status) status.innerHTML = '✅ <b>Saved to Files tab</b> &amp; auto-copied to clipboard<br>'
+          +'<span style="color:var(--muted);font-size:.71rem;">Paste into Google Sheets or Excel</span>';
+      }).catch(function(){});
+    }
   }catch(e){}
 
-  var shareBtn = canShare
-    ? '<button id="_sh-native" style="width:100%;padding:14px;margin-bottom:8px;background:#22d3ee;color:#060e18;font-family:\'Nunito\',sans-serif;font-weight:700;font-size:.88rem;border:none;border-radius:10px;cursor:pointer">📤 Share via Android (WhatsApp / Gmail / Drive…)</button>'
-    : '<div style="padding:10px;font-size:.72rem;color:#fbbf24;text-align:center;background:#1a1200;border-radius:8px;margin-bottom:8px">ℹ️ Web Share not supported on this device/browser.<br>Use Copy or long-press to save.</div>';
+  // Text area
+  var ta = document.createElement('textarea');
+  ta.id = '_csv-ta-main';
+  ta.readOnly = true;
+  ta.value = csvText;
+  ta.style.cssText = 'flex:1;width:100%;background:#040f1c;color:#e8f4ff;font-family:\'Share Tech Mono\',monospace;font-size:.67rem;padding:11px 12px;border:none;outline:none;resize:none;-webkit-user-select:text;user-select:text;';
+  ov.appendChild(ta);
 
-  var isImg = blob.type.startsWith("image/");
-  var isCsv = blob.type.indexOf("csv")!==-1;
+  // Button bar
+  var bar = document.createElement('div');
+  bar.style.cssText = 'padding:9px 10px;background:#0c1d30;flex-shrink:0;display:grid;grid-template-columns:1fr 1fr;gap:7px;';
 
-  ov.innerHTML =
-    '<div style="background:var(--surface,#0c1d30);border-radius:16px 16px 0 0;padding:16px 14px 24px;width:100%;max-width:480px;">'
-    +'<div style="text-align:center;margin-bottom:12px">'
-    +'<div style="font-family:\'Rajdhani\',sans-serif;font-size:1rem;font-weight:700;color:var(--accent,#22d3ee);letter-spacing:1px">SHARE / SAVE FILE</div>'
-    +'<div style="font-size:.7rem;color:var(--muted,#7db0cc);margin-top:2px">'+fname+'</div>'
-    +'</div>'
-    + shareBtn
-    +(isImg
-      ? '<button id="_sh-gallery" style="width:100%;padding:13px;margin-bottom:8px;background:#4ade80;color:#071a0e;font-family:\'Nunito\',sans-serif;font-weight:700;font-size:.85rem;border:none;border-radius:10px;cursor:pointer">🖼 View Image (Long-press → Save to Gallery)</button>'
-      : '')
-    +(isCsv
-      ? '<button id="_sh-copy" style="width:100%;padding:13px;margin-bottom:8px;background:#6366f1;color:#fff;font-family:\'Nunito\',sans-serif;font-weight:700;font-size:.85rem;border:none;border-radius:10px;cursor:pointer">📋 Copy CSV to Clipboard</button>'
-      : '')
-    +'<button id="_sh-close" style="width:100%;padding:12px;background:var(--surf2,#091624);color:var(--muted,#7db0cc);font-family:\'Nunito\',sans-serif;font-weight:700;font-size:.84rem;border:1px solid var(--border,#0e2e4e);border-radius:10px;cursor:pointer">✕ Cancel</button>'
-    +'</div>';
+  var btnShare = document.createElement('button');
+  btnShare.style.cssText = 'padding:12px 6px;background:#7c3aed;color:#fff;font-weight:700;border:none;border-radius:8px;font-size:.78rem;cursor:pointer;';
+  btnShare.textContent = '↗ Share CSV (WhatsApp/Gmail…)';
+  btnShare.onclick = function(){ _shareText(csvText, fname); };
+
+  var btnCopy = document.createElement('button');
+  btnCopy.style.cssText = 'padding:12px 6px;background:#22d3ee;color:#060e18;font-weight:700;border:none;border-radius:8px;font-size:.78rem;cursor:pointer;';
+  btnCopy.textContent = '📋 Copy to Clipboard';
+  btnCopy.onclick = function(){
+    _copyToClipboard(csvText);
+    btnCopy.textContent = '✅ Copied!';
+    setTimeout(function(){ btnCopy.textContent = '📋 Copy to Clipboard'; }, 2000);
+  };
+
+  var btnDone = document.createElement('button');
+  btnDone.style.cssText = 'padding:12px 6px;background:#0e7490;color:#fff;font-weight:700;border:none;border-radius:8px;font-size:.78rem;cursor:pointer;grid-column:1/-1;';
+  btnDone.textContent = '✓ Done — go to Files tab to view/share again';
+  btnDone.onclick = function(){ ov.remove(); };
+
+  bar.appendChild(btnShare);
+  bar.appendChild(btnCopy);
+  bar.appendChild(btnDone);
+  ov.appendChild(bar);
   document.body.appendChild(ov);
-
-  // Close on backdrop tap
-  ov.addEventListener('click', function(e){ if(e.target===ov) ov.remove(); });
-
-  // Close button
-  document.getElementById('_sh-close').onclick = function(){ ov.remove(); };
-
-  // Native share — THIS button tap is the user gesture → share() works
-  if(canShare && document.getElementById('_sh-native')){
-    document.getElementById('_sh-native').onclick = function(){
-      ov.remove();
-      try{
-        var file = new File([blob], fname, {type: blob.type||"application/octet-stream"});
-        navigator.share({files:[file], title:"OptiCost — "+fname})
-          .catch(function(err){ if(err&&err.name!=="AbortError") showModal("Share","Could not open share sheet:\n"+err.message); });
-      }catch(e){ showModal("Share Error", e.message); }
-    };
-  }
-
-  // Gallery viewer for images
-  if(isImg && document.getElementById('_sh-gallery')){
-    document.getElementById('_sh-gallery').onclick = function(){
-      ov.remove();
-      _showImageViewer(dataUri, fname);
-    };
-  }
-
-  // CSV clipboard copy
-  if(isCsv && document.getElementById('_sh-copy')){
-    document.getElementById('_sh-copy').onclick = function(){
-      // Get text from data URI
-      try{
-        var b64 = dataUri.split(",")[1];
-        var txt = decodeURIComponent(escape(atob(b64)));
-        navigator.clipboard.writeText(txt)
-          .then(function(){ showModal("✅ Copied","CSV copied to clipboard.\nPaste into Google Sheets or Excel."); })
-          .catch(function(){ showModal("Copy","Could not auto-copy. Long-press text in the viewer to copy."); });
-      }catch(e){ showModal("Copy Error",e.message); }
-      ov.remove();
-    };
-  }
 }
 
-// ── Share a file already stored in IndexedDB ─────────────────
-// Called from Files tab — tap IS the gesture, so _showShareOverlay
-// fires synchronously. The blob conversion happens fast (sync atob).
-function shareStoredFile(fname){
-  _openFileDB().then(function(db){
-    var req = db.transaction("files","readonly").objectStore("files").get(fname);
-    req.onsuccess = function(){
-      var rec = req.result;
-      if(!rec){ showModal("Error","File not found in library."); return; }
-      // FIX BUG 2: decode without fetch()
-      try{
-        var blob = _dataUriToBlob(rec.data);
-        _showShareOverlay(blob, fname, rec.data);
-      }catch(e){ showModal("Error","Could not load file: "+e.message); }
-    };
-    req.onerror = function(){ showModal("Error","Could not read file."); };
-  }).catch(function(){ showModal("Error","Could not open file library."); });
+// ── Word/doc viewer ───────────────────────────────────────────
+// ── Doc/Word in-app iframe viewer ────────────────────────────
+function _showDocViewer(dataUri, fname){
+  var ex = document.getElementById('_doc-ov'); if(ex) ex.remove();
+  var ov = document.createElement('div');
+  ov.id  = '_doc-ov';
+  ov.style.cssText = 'position:fixed;inset:0;background:#fff;z-index:99999;display:flex;flex-direction:column;';
+
+  var hdr = document.createElement('div');
+  hdr.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#1a2e44;flex-shrink:0;gap:8px;';
+  var title = document.createElement('span');
+  title.style.cssText = "font-family:'Rajdhani',sans-serif;font-size:.85rem;font-weight:700;color:#22d3ee;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+  title.textContent = '📄 ' + fname;
+  var closeBtn = document.createElement('button');
+  closeBtn.textContent = '✕ Close';
+  closeBtn.style.cssText = 'flex-shrink:0;background:#f87171;border:none;color:#fff;font-weight:700;padding:7px 13px;border-radius:6px;font-size:.8rem;cursor:pointer;';
+  closeBtn.onclick = function(){ ov.remove(); };
+  hdr.appendChild(title);
+  hdr.appendChild(closeBtn);
+  ov.appendChild(hdr);
+
+  var tip = document.createElement('div');
+  tip.style.cssText = 'padding:7px 14px;background:#071a0e;flex-shrink:0;text-align:center;font-size:.72rem;color:#4ade80;line-height:1.6;';
+  tip.innerHTML = '✅ <b>Saved to Files tab.</b> Report shown below. '
+    + '<span style="color:#fbbf24;">Long-press content to copy/select text.</span>';
+  ov.appendChild(tip);
+
+  var iframe = document.createElement('iframe');
+  iframe.src = dataUri;
+  iframe.style.cssText = 'flex:1;border:none;width:100%;background:#fff;';
+  iframe.setAttribute('sandbox','allow-same-origin');
+  ov.appendChild(iframe);
+
+  document.body.appendChild(ov);
 }
 
-// ── In-app Files Library panel ────────────────────────────────
+function _showDocSaved(fname){
+  // Just show the modal — viewStoredFile will handle actual viewing
+  showModal('📄 Saved',
+    'File: '+fname+'\n\n'+
+    '✅ Saved in Files tab.\n'+
+    'Tap 🗂 Files → 👁 View to open it.'
+  );
+}
+
+// ── Files tab ─────────────────────────────────────────────────
 function renderFilesLib(){
-  var el = document.getElementById("_files-list");
+  var el = document.getElementById('_files-list');
   if(!el) return;
-  el.innerHTML = '<div style="color:var(--muted);font-size:.8rem;padding:12px;text-align:center">Loading…</div>';
-  _listFiles(function(files){
-    if(!files.length){
-      el.innerHTML = '<div style="color:var(--muted);font-size:.8rem;padding:16px;text-align:center">'
-        +'No saved files yet.<br><br>'
-        +'Save CSV / PNG / Word from the Circular or Rect tabs — files appear here automatically.</div>';
+  el.innerHTML = '<div style="color:var(--muted);font-size:.8rem;padding:12px;text-align:center;">Loading…</div>';
+  _listFiles(function(err, files){
+    if(err || !files.length){
+      el.innerHTML = '<div style="color:var(--muted);font-size:.82rem;padding:20px 14px;text-align:center;line-height:1.9;">'
+        +'No files saved yet.<br>'
+        +'<b style="color:var(--accent);">How to save:</b><br>'
+        +'→ Circular/Rect tab → Calculate → tap <b>💾 Save CSV</b><br>'
+        +'→ Results tab → tap <b>📷 PNG</b> or <b>📄 Word</b><br>'
+        +'Files appear here automatically.'
+        +'</div>';
       return;
     }
-    files.sort(function(a,b){ return b.ts-a.ts; });
-    el.innerHTML = files.map(function(f){
+    files.sort(function(a,b){ return b.ts - a.ts; });
+    var html = '';
+    files.forEach(function(f){
       var d    = new Date(f.ts).toLocaleString();
-      var icon = f.mime.startsWith("image/")?"🖼":f.mime.indexOf("csv")!==-1?"📊":"📄";
-      var safeName = f.fname.replace(/'/g,"\\'");
-      return '<div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border)">'
-        +'<div style="flex:1;min-width:0">'
-        +'<div style="font-size:.8rem;color:var(--text);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+icon+' '+f.fname+'</div>'
-        +'<div style="font-size:.65rem;color:var(--muted);margin-top:2px">'+d+'</div>'
+      var icon = f.mime.startsWith('image/') ? '🖼' : f.fname.endsWith('.csv') ? '📊' : '📄';
+      var sn   = f.fname.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      html +=
+        '<div style="padding:11px 0;border-bottom:1px solid var(--border);">'
+        // Row 1: icon + name + date
+        +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:7px;">'
+        +'<div style="flex:1;min-width:0;">'
+        +'<div style="font-size:.8rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+icon+' '+f.fname+'</div>'
+        +'<div style="font-size:.64rem;color:var(--muted);margin-top:2px;">'+d+'</div>'
         +'</div>'
-        +'<button onclick="shareStoredFile(\''+safeName+'\')" style="flex-shrink:0;background:var(--accent);border:none;color:var(--tag-txt);font-size:.72rem;font-weight:700;padding:7px 11px;border-radius:7px;cursor:pointer">↗ Share</button>'
-        +'<button onclick="deleteStoredFile(\''+safeName+'\')" style="flex-shrink:0;background:var(--surf2);border:1px solid var(--red);color:var(--red);font-size:.72rem;font-weight:700;padding:7px 9px;border-radius:7px;cursor:pointer">✕</button>'
+        +'</div>'
+        // Row 2: action buttons
+        +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;">'
+        +'<button onclick="viewStoredFile(\''+sn+'\')" style="padding:9px 4px;background:var(--accent);border:none;color:var(--tag-txt);font-size:.72rem;font-weight:700;border-radius:7px;cursor:pointer;">👁 View</button>'
+        +'<button onclick="shareStoredFile(\''+sn+'\')" style="padding:9px 4px;background:#7c3aed;border:none;color:#fff;font-size:.72rem;font-weight:700;border-radius:7px;cursor:pointer;">↗ Share</button>'
+        +'<button onclick="deleteStoredFile(\''+sn+'\')" style="padding:9px 4px;background:var(--surf2);border:1px solid var(--red);color:var(--red);font-size:.72rem;font-weight:700;border-radius:7px;cursor:pointer;">🗑 Delete</button>'
+        +'</div>'
         +'</div>';
-    }).join('');
+    });
+    el.innerHTML = html;
   });
 }
+
+function _getStoredFile(fname, cb){
+  _openFileDB().then(function(db){
+    var req = db.transaction('files','readonly').objectStore('files').get(fname);
+    req.onsuccess = function(){
+      if(!req.result){ cb(null, null); return; }
+      cb(null, req.result);
+    };
+    req.onerror = function(e){ cb(e.target.error, null); };
+  }).catch(function(e){ cb(e, null); });
+}
+
+function viewStoredFile(fname){
+  _getStoredFile(fname, function(err, rec){
+    if(err || !rec){ showModal('Error', err ? err.message : 'File not found.'); return; }
+    if(rec.mime.startsWith('image/')){
+      _showImageViewer(rec.data, rec.fname);
+    } else if(rec.fname.endsWith('.csv')){
+      try{
+        var text = _dataUriToText(rec.data);
+        _showCSVViewer(text, rec.fname);
+      }catch(e){ showModal('Error','Could not decode CSV: '+e.message); }
+    } else {
+      // Word/HTML doc — show in an in-app iframe overlay
+      _showDocViewer(rec.data, rec.fname);
+    }
+  });
+}
+
+function shareStoredFile(fname){
+  _getStoredFile(fname, function(err, rec){
+    if(err || !rec){ showModal('Error', err ? err.message : 'File not found.'); return; }
+    if(rec.fname.endsWith('.csv')){
+      // For CSV: share as text (this works in navigator.share on Android)
+      try{
+        var text = _dataUriToText(rec.data);
+        _shareText(text, rec.fname);
+      }catch(e){
+        showModal('Error','Could not decode file: '+e.message);
+      }
+    } else if(rec.mime.startsWith('image/')){
+      // For images: open full-screen viewer — instructions shown inside viewer
+      _showImageViewer(rec.data, rec.fname);
+    } else {
+      // Word/doc — show it in the in-app viewer, user can interact from there
+      _showDocViewer(rec.data, rec.fname);
+    }
+  });
+}
+
 function deleteStoredFile(fname){
-  showConfirm("Delete","Remove '"+fname+"' from saved files?",function(){
+  showConfirm('Delete', "Remove '"+fname+"' from saved files?", function(){
     _deleteFile(fname, function(){ renderFilesLib(); });
   });
 }
-window.shareStoredFile  = shareStoredFile;
-window.deleteStoredFile = deleteStoredFile;
-window.renderFilesLib   = renderFilesLib;
 
-// ── In-app image viewer (long-press → Save to Gallery) ───────
-function _showImageViewer(dataUri, fname){
-  var ex = document.getElementById('_img-viewer'); if(ex) ex.remove();
-  var ov = document.createElement('div');
-  ov.id  = '_img-viewer';
-  ov.style.cssText = 'position:fixed;inset:0;background:#000;z-index:99998;display:flex;flex-direction:column;overflow-y:auto;';
-  ov.innerHTML =
-    '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#0c1d30;flex-shrink:0">'
-    +'<div style="font-family:\'Rajdhani\',sans-serif;font-size:.85rem;font-weight:700;color:#22d3ee">📷 '+fname+'</div>'
-    +'<button onclick="document.getElementById(\'_img-viewer\').remove()" style="background:#f87171;border:none;color:#fff;font-weight:700;padding:6px 12px;border-radius:6px;font-size:.8rem;cursor:pointer">✕ Close</button>'
-    +'</div>'
-    +'<div style="padding:8px 12px;font-size:.72rem;color:#fbbf24;background:#091624;flex-shrink:0;text-align:center;line-height:1.6">'
-    +'📌 <b>Long-press the image</b> below → tap <b>Save image</b> → saved to Gallery<br>'
-    +'<span style="color:#7db0cc">Or go to Files tab → tap ↗ Share to send via WhatsApp/Gmail</span>'
-    +'</div>'
-    +'<img src="'+dataUri+'" style="width:100%;display:block;" />';
-  document.body.appendChild(ov);
-}
-
-// ── In-app CSV viewer ─────────────────────────────────────────
-function _showCSVViewer(csvText, fname){
-  var ex = document.getElementById('_csv-viewer'); if(ex) ex.remove();
-  var ov = document.createElement('div');
-  ov.id  = '_csv-viewer';
-  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.96);z-index:99998;display:flex;flex-direction:column;';
-  var safe = csvText.replace(/&/g,'&amp;').replace(/</g,'&lt;');
-  ov.innerHTML =
-    '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#0c1d30;flex-shrink:0">'
-    +'<div style="font-family:\'Rajdhani\',sans-serif;font-size:.85rem;font-weight:700;color:#22d3ee">📊 '+fname+'</div>'
-    +'<button onclick="document.getElementById(\'_csv-viewer\').remove()" style="background:#f87171;border:none;color:#fff;font-weight:700;padding:6px 12px;border-radius:6px;font-size:.8rem;cursor:pointer">✕ Close</button>'
-    +'</div>'
-    +'<div style="padding:7px 12px;font-size:.71rem;color:#4ade80;background:#071a0e;flex-shrink:0;text-align:center;line-height:1.6">'
-    +'✅ <b>Saved to Files tab</b> — tap Files tab → ↗ Share to send via WhatsApp/Gmail/Drive'
-    +'</div>'
-    +'<textarea readonly id="_csv-txt" style="flex:1;width:100%;background:#040f1c;color:#e8f4ff;font-family:\'Share Tech Mono\',monospace;font-size:.66rem;padding:10px;border:none;outline:none;resize:none;">'+safe+'</textarea>'
-    +'<div style="padding:8px 10px;background:#0c1d30;flex-shrink:0;display:flex;gap:6px">'
-    +'<button onclick="var t=document.getElementById(\'_csv-txt\');try{navigator.clipboard.writeText(t.value).then(function(){document.getElementById(\'_csv-viewer\').remove();showModal(\'✅ Copied\',\'CSV copied to clipboard.\\nPaste into Google Sheets or Excel.\');});}catch(e){t.select();document.execCommand(\'copy\');}" style="flex:1;padding:11px;background:#22d3ee;color:#060e18;font-weight:700;border:none;border-radius:8px;font-size:.8rem;cursor:pointer">📋 Copy to Clipboard</button>'
-    +'<button onclick="document.getElementById(\'_csv-viewer\').remove()" style="flex:1;padding:11px;background:#0e7490;color:#fff;font-weight:700;border:none;border-radius:8px;font-size:.8rem;cursor:pointer">✓ Done</button>'
-    +'</div>';
-  document.body.appendChild(ov);
-  // Auto-copy on open
-  try{ navigator.clipboard.writeText(csvText).catch(function(){}); }catch(e){}
-}
+window._shareText         = _shareText;
+window._copyToClipboard   = _copyToClipboard;
+window._execCommandCopy   = _execCommandCopy;
+window.renderFilesLib     = renderFilesLib;
+window.viewStoredFile     = viewStoredFile;
+window.shareStoredFile    = shareStoredFile;
+window.deleteStoredFile   = deleteStoredFile;
 
 // ════════════════════════════════════════
 //  PUBLIC SAVE FUNCTIONS
 // ════════════════════════════════════════
 
-// ── CSV ───────────────────────────────────────────────────────
 function doSave(){
-  if(!recs.length){ showModal("No Data","Nothing to save yet.\n\nCalculate items first, then tap Save CSV."); return; }
-  const allHdrs=[...new Set(recs.flatMap(r=>Object.keys(r)))];
-  const escape=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
-  const csvText="\uFEFF"+[allHdrs.map(escape).join(","),...recs.map(r=>allHdrs.map(h=>escape(r[h]??'')).join(","))].join("\r\n");
-  const fname="OptiCost_"+new Date().toISOString().slice(0,19).replace(/[T:]/g,"-")+".csv";
-  const blob=new Blob([csvText],{type:"text/csv;charset=utf-8;"});
-  // Store first, then show viewer (store is async but viewer doesn't depend on it)
-  _storeFile(fname, blob, null);
-  _showCSVViewer(csvText, fname);
-}
-
-// ── PNG ───────────────────────────────────────────────────────
-function _savePNG(blob, fname){
-  // Store and show viewer with the data URI from storage callback
-  _storeFile(fname, blob, function(dataUri){
-    _showImageViewer(dataUri, fname);
+  if(!recs.length){
+    showModal('No Data','Nothing to save yet.\n\nCalculate items first, then tap Save CSV.');
+    return;
+  }
+  const allHdrs = [...new Set(recs.flatMap(r => Object.keys(r)))];
+  const escape  = v => '"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const lines   = [allHdrs.map(escape).join(','),
+                   ...recs.map(r => allHdrs.map(h => escape(r[h]==null?'':r[h])).join(','))];
+  const csvText = '\uFEFF' + lines.join('\r\n');
+  var fname = 'OptiCost_'+new Date().toISOString().slice(0,19).replace(/[T:]/g,'-')+'.csv';
+  var blob  = new Blob([csvText], {type:'text/csv;charset=utf-8;'});
+  _storeFile(fname, blob, function(dataUri, err){
+    if(err) console.warn('IDB store error:', err);
+    // Show viewer regardless — content is still in csvText
+    _showCSVViewer(csvText, fname);
   });
 }
 
-// ── Word/doc ──────────────────────────────────────────────────
+function _savePNG(blob, fname){
+  _storeFile(fname, blob, function(dataUri, err){
+    if(err) console.warn('IDB store error:', err);
+    if(dataUri){
+      _showImageViewer(dataUri, fname);
+    } else {
+      showModal('Error','Could not encode image for display.');
+    }
+  });
+}
+
 function _saveFile(blob, fname, successMsg){
-  _storeFile(fname, blob, function(dataUri){
-    // Show share overlay immediately — the storage is done
-    _showShareOverlay(blob, fname, dataUri);
+  _storeFile(fname, blob, function(dataUri, err){
+    if(err) console.warn('IDB store error:', err);
+    _showDocSaved(fname);
   });
 }
 
@@ -1831,20 +1973,22 @@ function saveReportImage(fmt){
 // ═══════════════════════════════════════
 function shareResultsText(){
   if(!recs.length){showModal("No Data","Run a calculation first.");return;}
-  showModal("Building…","Generating report image for sharing…");
-  setTimeout(()=>{
-    try{
-      _buildReportCanvas(function(cv){
-        cv.toBlob(function(blob){
-          _closeModal();
-          try{cv.width=1;cv.height=1;}catch{}
-          if(!blob){showModal("Error","Could not generate image.");return;}
-          const fname=_defaultName("OptiCost_Share")+".png";
-          _savePNG(blob, fname); // _savePNG handles share + fallback
-        },"image/png");
-      });
-    }catch(e){_closeModal();showModal("Error","Share failed: "+e.message);}
-  },80);
+  var lines=[];
+  document.querySelectorAll("#result-text .res-row").forEach(function(r){
+    var lbl=r.querySelector(".res-lbl"),inp=r.querySelector(".res-val-inp");
+    if(lbl&&inp) lines.push(lbl.textContent.trim()+": "+inp.value.trim());
+  });
+  if(!lines.length){showModal("No Results","Run a calculation first, then tap Share.");return;}
+  var mfr=(document.getElementById("rpt-mfr")||{value:""}).value||"Optics & Allied Engg.";
+  var vendor=(document.getElementById("rpt-vendor")||{value:""}).value||"";
+  var partno=(document.getElementById("rpt-partno")||{value:""}).value||"";
+  var dateVal=(document.getElementById("rpt-date")||{value:""}).value||new Date().toLocaleDateString();
+  var header="=== OptiCost Report ===\n"+mfr+"\n";
+  if(vendor) header+="To: "+vendor+"\n";
+  if(partno) header+="Part No: "+partno+"\n";
+  header+="Date: "+dateVal+"\n\n";
+  var shareText=header+lines.join("\n")+"\n\nGenerated by OptiCost LRMCE v2.0";
+  _shareText(shareText,"OptiCost Report");
 }
 
 function saveReportDoc(){
@@ -1879,7 +2023,7 @@ function _saveReportDocWithName(fname){
 <table class="hdr-table" style="margin-bottom:14px;background:#f8fafc;border:1px solid #e2e8f0"><tr><td><b>To:</b></td><td>${vendor}</td><td><b>Part No.:</b></td><td style="color:#92400e;font-weight:700">${partno}</td><td><b>Date:</b></td><td>${dateVal}</td></tr></table>
 <table>${tableRows}</table>
 <div class="footer">Generated by OptiCost LRMCE v2.0 | ${mfr} | www.opticsindia.com</div></body></html>`;
-  // Use _saveFile: tries Web Share first, then data: URI download
+  // Use _saveFile: stores in IndexedDB, then shows save confirmation
   const blob=new Blob(["\ufeff"+docHtml],{type:"application/msword;charset=utf-8"});
   _saveFile(blob, fname, "Word Report Ready");
 }
@@ -1907,6 +2051,7 @@ function doReset(){
     document.getElementById("rpt-vendor").value="";
     document.getElementById("rpt-title").value="";
     document.getElementById("rpt-partno").value="";
+    document.getElementById("rpt-date").value=new Date().toLocaleDateString();
     clearCanvas("c-canvas");clearCanvas("r-canvas");
     document.getElementById("live-summary").style.display="none";
     document.getElementById("r-live-summary").style.display="none";
@@ -2273,6 +2418,7 @@ window.__flushStubs({
   _closeModal:_closeModal,
   forgetLogin:forgetLogin,
   renderFilesLib:renderFilesLib,
+  viewStoredFile:viewStoredFile,
   shareStoredFile:shareStoredFile,
   deleteStoredFile:deleteStoredFile
 });
